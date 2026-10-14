@@ -1,0 +1,316 @@
+#comboGlance {
+	width: 1170px;
+	margin: 0 auto;
+	padding: 0 8px 6px;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	text-align: left;
+}
+#comboGlanceOpen {
+	border: 0;
+	border-radius: 999px;
+	background: #2f9e8f;
+	color: #fff;
+	font-family: "Didact Gothic", sans-serif;
+	font-size: 13px;
+	line-height: 22px;
+	padding: 0 10px;
+	cursor: pointer;
+	flex: 0 0 auto;
+}
+#comboGlanceOpen:hover,
+#btn_combos.on,
+#btn_captions.on {
+	background: #21786c;
+	border-color: #186158;
+	color: #fff;
+}
+#imagestools #btn_captions.on {
+	background: #1f8a4c;
+	border-color: #176b3b;
+}
+#comboGlanceBody {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 6px;
+	padding: 3px 10px;
+	min-height: 26px;
+	color: #d5e2e7;
+	font-size: 13px;
+}
+#comboPick {
+	flex: 1;
+	min-width: 0;
+	height: 24px;
+	border: 0;
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.28);
+	color: #fff;
+	font-family: "Didact Gothic", sans-serif;
+	font-size: 13px;
+	padding: 0 4px;
+}
+#comboPick option { color: #1c282f; }
+#howmanyleft {
+	float: right;
+	color: #fff;
+	font-weight: bold;
+	white-space: nowrap;
+	padding: 0 8px;
+	min-width: 0;
+}
+#firstButton, #lastButton {
+	float: right;
+	width: auto;
+	min-width: 52px;
+	color: #333;
+}
+#comboGlanceNum {
+	font-weight: bold;
+	font-size: 16px;
+	color: #b6f3cf;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+#comboGlance.is-near #comboGlanceNum { color: #ffd27a; }
+#comboGlance.is-over #comboGlanceNum { color: #ff9b9b; }
+#comboGlanceHint {
+	color: #c5d4da;
+	white-space: nowrap;
+}
+#comboGlanceBar {
+	display: none;
+	width: 72px;
+	height: 6px;
+	border-radius: 99px;
+	background: rgba(255, 255, 255, 0.16);
+	overflow: hidden;
+	flex: 0 0 auto;
+}
+#comboGlanceBar.on { display: inline-block; }
+#comboGlanceBar i {
+	display: block;
+	height: 100%;
+	width: 0;
+	background: #7ddec4;
+}
+#comboGlance.is-near #comboGlanceBar i { background: #ffd27a; }
+#comboGlance.is-over #comboGlanceBar i { background: #ff8b8b; }
+
+#comboPanel {
+	display: none;
+	position: fixed;
+	z-index: 40;
+	width: 340px;
+	max-height: 72vh;
+	flex-direction: column;
+	background: #1c282f;
+	color: #eef3f5;
+	border-radius: 12px;
+	box-shadow: 0 16px 44px rgba(0, 0, 0, 0.38);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	font-family: "Didact Gothic", sans-serif;
+	overflow: hidden;
+	text-align: left;
+}
+#comboPanel.open { display: flex; }
+#comboPanelHead,
+#comboSearch,
+#comboEmpty,
+#comboPanelFoot { flex: 0 0 auto; }
+#comboPanelHead {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 8px 6px 12px;
+	cursor: move;
+	user-select: none;
+	background: #24343c;
+}
+#comboPanelTitle {
+	font-weight: bold;
+	font-size: 15px;
+	flex: 1;
+}
+#comboPanelCount {
+	font-weight: normal;
+	color: #9fb4bd;
+	font-size: 12px;
+}
+#comboMetric {
+	display: flex;
+	background: rgba(0, 0, 0, 0.25);
+	border-radius: 999px;
+	padding: 2px;
+}
+#comboMetric button {
+	border: 0;
+	background: transparent;
+	color: #c5d4da;
+	border-radius: 999px;
+	font-family: inherit;
+	font-size: 12px;
+	line-height: 20px;
+	padding: 0 8px;
+	cursor: pointer;
+}
+#comboMetric button.on {
+	background: #2f9e8f;
+	color: #fff;
+}
+#comboPanelClose {
+	border: 0;
+	background: transparent;
+	color: #d5e2e7;
+	font-size: 20px;
+	line-height: 20px;
+	width: 26px;
+	cursor: pointer;
+}
+#comboSearch {
+	margin: 8px 10px 4px;
+	height: 28px;
+	border-radius: 6px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	background: rgba(0, 0, 0, 0.22);
+	color: #fff;
+	padding: 0 8px;
+	font-family: inherit;
+}
+#comboList {
+	overflow: auto;
+	padding: 4px 0 6px;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+#comboEmpty {
+	display: none;
+	color: #9fb4bd;
+	padding: 8px 14px 12px;
+	font-size: 13px;
+}
+#comboPanelFoot {
+	color: #8ea3ab;
+	font-size: 11px;
+	line-height: 1.35;
+	padding: 6px 12px 8px;
+	background: #1c282f;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.combo-row {
+	position: relative;
+	margin: 0 8px 6px;
+	padding: 6px 8px 5px;
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+	overflow: hidden;
+}
+.combo-row.is-here { box-shadow: inset 3px 0 0 #3dbea2; }
+.combo-row.is-watched { outline: 1px solid #7ddec4; }
+.combo-bar {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 0;
+	background: rgba(61, 190, 162, 0.16);
+	pointer-events: none;
+}
+.combo-row.is-near .combo-bar { background: rgba(255, 210, 122, 0.18); }
+.combo-row.is-over .combo-bar { background: rgba(255, 139, 139, 0.2); }
+.combo-main,
+.combo-meta {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.combo-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 13px;
+}
+.combo-num {
+	font-weight: bold;
+	font-size: 16px;
+	color: #b6f3cf;
+	font-variant-numeric: tabular-nums;
+}
+.combo-row.is-near .combo-num { color: #ffd27a; }
+.combo-row.is-over .combo-num { color: #ff9b9b; }
+.combo-meta {
+	margin-top: 2px;
+	color: #a9bdc5;
+	font-size: 12px;
+}
+.combo-sub { flex: 1; min-width: 0; }
+.combo-here {
+	display: none;
+	background: rgba(61, 190, 162, 0.2);
+	color: #b6f3cf;
+	border-radius: 99px;
+	padding: 0 6px;
+	line-height: 16px;
+	font-size: 11px;
+}
+.combo-target-label {
+	margin: 0;
+	font-weight: normal;
+	color: #8ea3ab;
+	white-space: nowrap;
+}
+.combo-target {
+	width: 58px;
+	height: 20px;
+	margin-left: 4px;
+	padding: 0 4px;
+	border-radius: 4px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(0, 0, 0, 0.28);
+	color: #fff;
+	font-family: inherit;
+	font-size: 12px;
+}
+.combo-target::-webkit-outer-spin-button,
+.combo-target::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+.combo-row.flash { outline: 1px solid #7ddec4; }
+
+#annoCaptions {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 20;
+	overflow: hidden;
+}
+.anno-cap {
+	position: absolute;
+	max-width: 240px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 1px 5px;
+	border-radius: 3px;
+	background: rgba(12, 16, 20, 0.82);
+	color: #fff;
+	font-family: "Didact Gothic", sans-serif;
+	font-size: 12px;
+	line-height: 16px;
+	font-weight: bold;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.anno-cap.is-null { background: rgba(176, 32, 32, 0.9); }
