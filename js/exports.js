@@ -358,32 +358,6 @@ function generateNewsCSV_3(){ //from video.csv
 	saveAs(csvFile, allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + "-News.csv"); //v24.8
 }
 
-function generateAnnFilesZip() {
-	if(""==$("#AnnotatorName").html()){alert("please enter annotator name !");return!1};
-    $("#generateAnnFiles").blur();
-    if ("" == $("#projectFolder").val()) return !1;
-    storeAnnotationImg();
-    for (var a = new JSZip, b = 0, c = imIndices.length; b < c; b++) {
-        var d = imIndices[b],
-            e = "";
-        if (allAnnotations.images.hasOwnProperty(d))
-            for (var g = allAnnotations.images[d].width * allAnnotations.images[d].height, f = allAnnotations.images[d].annotations, h = 0, k = f.length; h < k; h++) var C = f[h].brand,
-                v = f[h].tpoint,
-                z = f[h].hits,
-                p = f[h].startPoint,
-                n = f[h].diagPoint,
-                r = Math.abs(n[0] - p[0]),
-                q = Math.abs(n[1] - p[1]),
-                r = Math.round(r * q / g * 1E5) / 1E3,
-                e = e + ("#:" + C + ":" + v + ":" + Math.round(p[0]) + "," + Math.round(p[1]) + "," + Math.round(n[0]) + "," + Math.round(n[1]) + ":" + r + ":" + z + "\n");
-        a.file(d + ".ann", e)
-    }
-    a = a.generate({
-        type: "blob"
-    });
-    saveAs(a, allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + "-ann.zip");
-}
-
 function videoALL(){ //unused
 	downloadAnnotations();
 	generateVideoCSV();

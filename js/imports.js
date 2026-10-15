@@ -70,16 +70,7 @@ fileInput.addEventListener("change", function(a) {
 				a.value = 0 < allAnnotations.imageNum ? "[" + allAnnotations.imageNum + " files]  " + b : b
 			);
 	fileInput.blur();
-	var optDiv = document.getElementById('workspace');
-	var b,c = "";
-	
-	b = "css/video.css"; c=optDiv.getElementsByTagName('option')[0].value;	
-	
-	if ( $("#projectFolderBox").val().indexOf('images')>-1 ) {
-		c = optDiv.getElementsByTagName('option')[1].value
-		$('span#scrloc').css('display','inline-block')
-	}
-	document.getElementById("workspace").value=c;
+	document.getElementById("workspace").value = "Video";
 	changeCss();
 	$(".topcol2, .topcol3, .topcol4").fadeIn() 
 	$("#projectFolderBox").attr( 'title', $("#projectFolderBox").val() );
