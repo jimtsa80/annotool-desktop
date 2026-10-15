@@ -329,3 +329,26 @@ html.theme-dark #imagestools #btn_foldcols.on {
 html.theme-dark #comboPick option {
 	color: #1c282f;
 }
+html.theme-dark,
+html.theme-dark #brands,
+html.theme-dark #tpoints,
+html.theme-dark #hits {
+	scrollbar-color: #5d7280 #151c22;
+	scrollbar-width: auto;
+}
+html.theme-dark ::-webkit-scrollbar {
+	width: 12px;
+	height: 12px;
+}
+html.theme-dark ::-webkit-scrollbar-track,
+html.theme-dark ::-webkit-scrollbar-corner {
+	background: #151c22;
+}
+html.theme-dark ::-webkit-scrollbar-thumb {
+	background: #5d7280;
+	border-radius: 8px;
+	border: 2px solid #151c22;
+}
+html.theme-dark ::-webkit-scrollbar-thumb:hover {
+	background: #7d94a2;
+}
