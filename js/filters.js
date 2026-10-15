@@ -269,7 +269,8 @@ function filter_loadAnnotationImg() {	//// gia to filtro
 				for (var b = 0, c = a.length; b < c; b++) createPolygon(a[b].startPoint, a[b].diagPoint).annotation = {
 					brand: a[b].brand,
 					tpoint: a[b].tpoint,
-					hits: a[b].hits
+					hits: a[b].hits,
+					timestamp: a[b].timestamp || ""
 				};
 				brd.unsuspendUpdate();
 			}

@@ -579,7 +579,8 @@ function initJSXBoard() {
 				group: "",
                 brand: "",
                 tpoint: "",
-                hits: 0
+                hits: 0,
+                timestamp: new Date().toISOString()
             };
 			dehighlightAllObj();
 			// NEW BOX END
@@ -992,6 +993,7 @@ function storeAnnotationImg() {
 			d.brand = obj.annotation.brand;
 			d.tpoint = obj.annotation.tpoint;
 			d.hits = obj.annotation.hits;
+			if (obj.annotation.timestamp) d.timestamp = obj.annotation.timestamp;
 			a.annotations.push(d);
 		}
 	}
@@ -1032,7 +1034,8 @@ function loadAnnotationImg() {
             group: a[b].group,
             brand: a[b].brand,
             tpoint: a[b].tpoint,
-            hits: a[b].hits
+            hits: a[b].hits,
+            timestamp: a[b].timestamp || ""
         };
         brd.unsuspendUpdate()
     }
@@ -1546,6 +1549,7 @@ function pastePreset(a) {
         e.annotation.brand = d.brand;
         e.annotation.tpoint = d.tpoint;
         e.annotation.hits = d.hits;
+        e.annotation.timestamp = new Date().toISOString();
 
 		highlighted.push(brd, e)
     }
@@ -1565,6 +1569,7 @@ function pasteLastPreset(a) {
         e.annotation.brand = d.brand;
         e.annotation.tpoint = d.tpoint;
         e.annotation.hits = d.hits;
+        e.annotation.timestamp = new Date().toISOString();
     }
     brd.unsuspendUpdate()
 }
