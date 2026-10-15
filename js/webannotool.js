@@ -96,7 +96,7 @@ function hideSpinner() {
 }
 
 //////// Event Listeners
-workspaceInput.addEventListener("change", function(a) {
+if (workspaceInput) workspaceInput.addEventListener("change", function(a) {
     a = workspaceInput.options[workspaceInput.selectedIndex].text.toLowerCase();
     var b = "";
     "video" == a ? b = "css/video.css" : b = "css/photo.css" ;
@@ -104,7 +104,7 @@ workspaceInput.addEventListener("change", function(a) {
 });
 $( "#hits" ).change(function(a) {
     a = highlighted;
-    var b = $("#brands ul li.selected").attr('id'),   c = $("#tpoints ul li.selected").text(),   d = $("#hits").val();
+    var b = $("#brands ul li.selected").attr('id'),   c = tpointText(),   d = $("#hits").val();
     if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
     if ( b !== "" && c !== "" ) {
 		if( a.length==0 ){
@@ -287,6 +287,20 @@ function brandsInit() {
 	})
 }
 
+function tpointText(node) {
+    var name = "";
+    if (typeof node === "string") name = node;
+    else if (node && node.jquery) name = node.first().text();
+    else name = $("#tpoints ul li.selected").first().text();
+    name = $.trim(name || "");
+    var half = name.length / 2;
+    if (half && half === Math.floor(half) && name.slice(0, half) === name.slice(half)) {
+        var single = name.slice(0, half);
+        if (prefs && prefs.tpoints && prefs.tpoints.indexOf(single) !== -1) return single;
+    }
+    return name;
+}
+
 function tpointsInit() {
 	$('#tpoints ul').sortable({disabled: true});	// MANDATORY FOR SORTABLE TO WORK : adds class "ui-sortable-handle"
 	if ( $("#tpoints ul li").length>0 && $("#tpoints ul li.selected").length==0 ) $("#tpoints ul li:first").addClass('selected')
@@ -306,8 +320,11 @@ function fillTouchpoints(conn) {
         if (void 0 === tpoints) return console.log("Could not find brand name of annotation, possibly due to altered prefs file."), !1;
         i = 0;
 		$('#tpoints').append('<ul></ul>')
+        var seenTp = {};
         for (var c = tpoints.length; i < c; i++) {
             var d = tpoints[i];
+            if (!d || seenTp[d]) continue;
+            seenTp[d] = true;
 			$('#tpoints ul').append(
 				$("<li></li>")
 				.attr("id",d)
@@ -991,7 +1008,7 @@ function storeAnnotationImg() {
 			d.diagPoint = getPolyStartDiag(obj).diag;
 			d.group = obj.annotation.group;
 			d.brand = obj.annotation.brand;
-			d.tpoint = obj.annotation.tpoint;
+			d.tpoint = tpointText(obj.annotation.tpoint);
 			d.hits = obj.annotation.hits;
 			if (obj.annotation.timestamp) d.timestamp = obj.annotation.timestamp;
 			a.annotations.push(d);
@@ -1033,7 +1050,7 @@ function loadAnnotationImg() {
         ).annotation = {
             group: a[b].group,
             brand: a[b].brand,
-            tpoint: a[b].tpoint,
+            tpoint: tpointText(a[b].tpoint),
             hits: a[b].hits,
             timestamp: a[b].timestamp || ""
         };
@@ -1289,7 +1306,7 @@ function updateGUIAnnoInfo(a) {
 			$("#brands ul li[id='"+gr+"__"+br+"']").addClass('selected')
 			brandScrollTo();
 			fillTouchpoints( gr+"__"+br ); 
-			$("#tpoints ul li[id='"+tp+"']").addClass('selected')
+			$("#tpoints ul li").filter(function () { return $(this).text() === tp; }).first().addClass("selected")
 			
 			if ( "" == hits ){ 
 				document.getElementById("hits").selectedIndex = -1;
@@ -1547,7 +1564,7 @@ function pastePreset(a) {
         e.annotation = {};
         e.annotation.group = d.group;
         e.annotation.brand = d.brand;
-        e.annotation.tpoint = d.tpoint;
+        e.annotation.tpoint = tpointText(d.tpoint);
         e.annotation.hits = d.hits;
         e.annotation.timestamp = new Date().toISOString();
 
@@ -1567,7 +1584,7 @@ function pasteLastPreset(a) {
         e.annotation = {};
 		e.annotation.group = d.group;
         e.annotation.brand = d.brand;
-        e.annotation.tpoint = d.tpoint;
+        e.annotation.tpoint = tpointText(d.tpoint);
         e.annotation.hits = d.hits;
         e.annotation.timestamp = new Date().toISOString();
     }

@@ -9,10 +9,14 @@ $("#workspace").change( function () {	//photo checkbox
 })
 
 function changeCss(){
-	a = workspaceInput.options[workspaceInput.selectedIndex].text.toLowerCase();
-	var b = "";
-    "video" == a ? b = "css/video.css" : b = "css/photo.css" ;
-    document.getElementById("workspace-css").setAttribute("href", b)
+	var sheet = document.getElementById("workspace-css");
+	if (!sheet) return;
+	if (!workspaceInput || !workspaceInput.options || workspaceInput.selectedIndex < 0) {
+		sheet.setAttribute("href", "css/video.css");
+		return;
+	}
+	var a = workspaceInput.options[workspaceInput.selectedIndex].text.toLowerCase();
+    sheet.setAttribute("href", a === "video" ? "css/video.css" : "css/photo.css");
 }
 
 function loadPresetsFromJson() {
@@ -70,7 +74,6 @@ fileInput.addEventListener("change", function(a) {
 				a.value = 0 < allAnnotations.imageNum ? "[" + allAnnotations.imageNum + " files]  " + b : b
 			);
 	fileInput.blur();
-	document.getElementById("workspace").value = "Video";
 	changeCss();
 	$(".topcol2, .topcol3, .topcol4").fadeIn() 
 	$("#projectFolderBox").attr( 'title', $("#projectFolderBox").val() );
@@ -197,10 +200,18 @@ function readPrefsFile(a) {
 	//bazei ta global tpoints
 		for (key in prefs.conns) {
 			if ( prefs.conns.hasOwnProperty(key) ){
-				prefs.conns[key].tpoints.splice.apply(prefs.conns[key].tpoints, [0, 0].concat(globals))
-				prefs.tpoints.splice.apply(prefs.tpoints, [0, 0].concat(globals))
+				var list = prefs.conns[key].tpoints, extra = [], gi;
+				for (gi = 0; gi < globals.length; gi++) {
+					if (list.indexOf(globals[gi]) < 0) extra.push(globals[gi]);
+				}
+				if (extra.length) list.splice.apply(list, [0, 0].concat(extra));
 			}
 		}
+		var flatGlobals = [];
+		for (var gi = 0; gi < globals.length; gi++) {
+			if (prefs.tpoints.indexOf(globals[gi]) < 0) flatGlobals.push(globals[gi]);
+		}
+		if (flatGlobals.length) prefs.tpoints.splice.apply(prefs.tpoints, [0, 0].concat(flatGlobals));
 		b = $("#brands ul li");
 		$("#brands").html("<ul></ul>");
 	//bazei ta ul li

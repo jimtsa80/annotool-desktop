@@ -246,7 +246,7 @@ $(window).bind('mousewheel', function(e){
 			if (e.originalEvent.wheelDelta > 0 && document.getElementById("hits").value < 15) {
 				a = highlighted;
 				var b = $("#brands ul li.selected").attr('id'),
-					c = $("#tpoints ul li.selected").text(),
+					c = tpointText(),
 					d = $("#hits").val();
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
@@ -263,7 +263,7 @@ $(window).bind('mousewheel', function(e){
 			else if(e.originalEvent.wheelDelta < 0 && document.getElementById("hits").value > 1 ) {
 				a = highlighted;
 				var b = $("#brands ul li.selected").attr('id'),
-					c = $("#tpoints ul li.selected").text(),
+					c = tpointText(),
 					d = document.getElementById("hits").value;
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
@@ -284,7 +284,7 @@ $(window).bind('mousewheel', function(e){
 				a = highlighted;
 				var curconn = $("#brands ul li.selected").attr('id'),
 					cIndex = $("#tpoints .selected").index(),
-					c = $("#tpoints ul li").eq(cIndex+1).text(),
+					c = tpointText($("#tpoints ul li").eq(cIndex+1)),
 					d = document.getElementById("hits").value;
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != curconn && "" != c) {
@@ -304,7 +304,7 @@ $(window).bind('mousewheel', function(e){
 				a = highlighted;
 				var b = $("#brands ul li.selected").attr('id'),
 					cIndex = $("#tpoints .selected").index(),
-					c = $("#tpoints ul li").eq(cIndex-1).text(),
+					c = tpointText($("#tpoints ul li").eq(cIndex-1)),
 					d = document.getElementById("hits").value;
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {

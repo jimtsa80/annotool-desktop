@@ -437,8 +437,8 @@ $('button#addtpoint').click(function() { 	//done
 		$("input#newtpoint").on('focusout', function () {
 			if( $('input#newtpoint').val().trim() !== "" ){
 				var thisconn = $("#brands li.selected").attr('id');
-				var added = $('input#newtpoint').val().trim();
-				$("input#newtpoint").after('<li id="'+$('input#newtpoint').val()+'">'+$('input#newtpoint').val()+'</li>');    
+				var added = tpointText($('input#newtpoint').val().trim());
+				$("input#newtpoint").after($("<li></li>").attr("id", added).text(added));    
 				$("#tpoints li").removeClass('selected');
 				
 				if ( jQuery.inArray( added, prefs.tpoints )<0 ){
@@ -476,7 +476,7 @@ $('button#addtpoint').click(function() { 	//done
 
 $('button#deltpoint').click(function() {	//done
 	if( $("#tpoints li.selected").length>0 ){
-		var del = $("#tpoints li.selected").text()
+		var del = tpointText()
 	
 		var n = new Noty({
 			type: 'warning',
@@ -513,7 +513,7 @@ $('button#edittpoint').click(function() {
 			$(this).removeAttr('disabled');
 		}
 		
-		var current = $("#tpoints li.selected").text();
+		var current = tpointText();
 		$("#tpoints li.selected").after('<input id="newtpoint" type="text">');
 		$('input#newtpoint').val( current );
 		$('input#newtpoint').focus();
@@ -529,7 +529,7 @@ $('button#edittpoint').click(function() {
 			$('.toolbar button').removeAttr('disabled');
 			
 			if( $('input#newtpoint').val().trim() !== "" ){
-				var added = $('input#newtpoint').val().trim();
+				var added = tpointText($('input#newtpoint').val().trim());
 				$("input#newtpoint").after( $('<li></li>').attr( 'id',added ).text( added ) );    
 				var index = prefs.conns[$("#brands li.selected").attr('id')].tpoints.indexOf(current);
 				prefs.conns[$("#brands li.selected").attr('id')].tpoints[index] = added;

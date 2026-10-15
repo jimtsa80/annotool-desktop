@@ -213,8 +213,7 @@ function generateNewsCSV() { //old news format
     $("#generateNewsCSV").blur();
     if ("" == $("#projectFolder").val()) return !1;
     storeAnnotationImg();
-    var b = $("#workspace"),
-        b = b.options[b.selectedIndex].text.toLowerCase(),
+    var b = "video";
         d = allAnnotations.project.split("_"),
         c = d[d.length - 1] || "0000",
         f = isNaN(hour24ToSecs(c)) ? 0 : hour24ToSecs(c),
