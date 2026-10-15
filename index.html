@@ -3,6 +3,12 @@
 
 <head>
     <meta charset="utf-8">
+	<script>
+	try {
+		if (localStorage.getItem("annotool.theme") === "dark")
+			document.documentElement.classList.add("theme-dark");
+	} catch (e) {}
+	</script>
     <link rel="stylesheet" href="css/libs/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/libs/jsxgraph.min.css" rel="stylesheet">
 	<link rel="stylesheet" href="css/libs/filtergrid.css" rel="stylesheet">
@@ -16,7 +22,7 @@
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
 	<link rel="stylesheet" href="css/livehud.css?v=10">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=2">
+	<link rel="stylesheet" href="css/modern.css?v=3">
 	
 
 
@@ -25,6 +31,7 @@
 <body class="color" id="page" align="center">
 
 <div id="toppanel" class="clearfix">
+	<button type="button" id="themeToggle" class="btn btn-warning btn-xs">Σκούρο</button>
 
 	<div class="topcol1 col-md-5">
 		<button id="newProjButton" type="button" class="btn btn-danger btn-xs shadow"><b>New Project</b><br>( Delete Data )</button>
@@ -353,6 +360,24 @@
 
 	<script type="text/javascript" src="js/compare.js"></script>
 	<script type="text/javascript" src="js/livehud.js?v=9"></script>
+	<script>
+	(function () {
+		var root = document.documentElement;
+		var btn = document.getElementById("themeToggle");
+		function paint() {
+			var dark = root.classList.contains("theme-dark");
+			btn.textContent = dark ? "Φωτεινό" : "Σκούρο";
+			btn.title = dark ? "φωτεινό θέμα" : "σκοτεινό θέμα";
+		}
+		paint();
+		btn.addEventListener("click", function () {
+			var dark = !root.classList.contains("theme-dark");
+			root.classList.toggle("theme-dark", dark);
+			try { localStorage.setItem("annotool.theme", dark ? "dark" : "light"); } catch (e) {}
+			paint();
+		});
+	})();
+	</script>
 </body>
 
 </html>

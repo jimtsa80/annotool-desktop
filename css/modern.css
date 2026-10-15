@@ -138,3 +138,191 @@ div#toptoggle i {
 div#toptoggle i:hover {
 	color: #24343d;
 }
+
+#toppanel {
+	position: relative;
+}
+#themeToggle {
+	position: absolute;
+	top: 8px;
+	right: 10px;
+	z-index: 2;
+	height: auto;
+	line-height: 16px;
+	padding: 4px 10px;
+	font-weight: bold;
+}
+
+html.theme-dark body#page {
+	background: #1b242b;
+	color: #e7eef2;
+}
+html.theme-dark #toppanel {
+	background: #121a1f;
+}
+html.theme-dark #title-wrap {
+	background: #10171c;
+	color: #f4f8fa;
+}
+html.theme-dark #brands,
+html.theme-dark #tpoints,
+html.theme-dark #hits,
+html.theme-dark #brands h4,
+html.theme-dark #brands li.group {
+	color: #e7eef2;
+}
+html.theme-dark #brands h4,
+html.theme-dark #brands li.group.minimized h4 {
+	border-bottom-color: #4a5d68;
+}
+html.theme-dark #brands li.group.minimized {
+	color: #c5d3da;
+}
+html.theme-dark div#brands li.group i {
+	box-shadow: none;
+}
+html.theme-dark div#brands ul li.selected,
+html.theme-dark div#tpoints ul li.selected {
+	background: #2f6f93;
+	color: #fff;
+}
+html.theme-dark #brands ul.sortable li,
+html.theme-dark #tpoints ul.sortable li,
+html.theme-dark #brands ul.sortable li.minimized {
+	color: #9fd0ea;
+}
+html.theme-dark #brandsearch,
+html.theme-dark #tpointsearch,
+html.theme-dark #hits {
+	background: #24313a;
+	color: #eef3f5;
+	border-color: #4a5d68;
+}
+html.theme-dark #brandsearch::placeholder,
+html.theme-dark #tpointsearch::placeholder {
+	color: #c5d3da;
+}
+html.theme-dark #hits option {
+	background: #24313a;
+	color: #eef3f5;
+}
+html.theme-dark #hits option:hover {
+	background: #2f6f93;
+	color: #fff;
+}
+html.theme-dark #brandsearchclear,
+html.theme-dark #tpointsearchclear {
+	color: #c5d3da;
+}
+html.theme-dark #projectPrefsBox,
+html.theme-dark #projectFolderBox,
+html.theme-dark #imageName,
+html.theme-dark #title input.editable {
+	background: #f4f7f8;
+	color: #1a242b;
+}
+html.theme-dark .jxgbox,
+html.theme-dark #box {
+	background-color: #12181d;
+	border-color: #2c3a42;
+}
+html.theme-dark div#preview,
+html.theme-dark #annos,
+html.theme-dark #tpfltr,
+html.theme-dark #colorseditpanel,
+html.theme-dark div#annostop,
+html.theme-dark #viewpresets,
+html.theme-dark #tpoins_list,
+html.theme-dark div#jpgcopy,
+html.theme-dark div#framename {
+	background: #1e2830;
+	color: #e7eef2;
+	border-color: #3a4a54;
+}
+html.theme-dark #annos th,
+html.theme-dark #annos td,
+html.theme-dark #annos .table,
+html.theme-dark #annos .table > tbody > tr > td,
+html.theme-dark #annos .table > thead > tr > th,
+html.theme-dark #jpgcopy .help {
+	background-color: transparent;
+	color: #e7eef2;
+	border-color: #3a4a54;
+}
+html.theme-dark div#toptoggle i {
+	color: #c5d3da;
+}
+html.theme-dark div#toptoggle i:hover {
+	color: #fff;
+}
+html.theme-dark .btn-primary,
+html.theme-dark .btn-primary:hover,
+html.theme-dark .btn-primary:focus {
+	background-color: #1f7eb0;
+	color: #fff;
+}
+html.theme-dark .btn-primary:hover,
+html.theme-dark .btn-primary:focus {
+	background-color: #186894;
+}
+html.theme-dark .btn-info,
+html.theme-dark .btn-info:hover,
+html.theme-dark .btn-info:focus {
+	background-color: #14808a;
+	color: #fff;
+}
+html.theme-dark .btn-info:hover,
+html.theme-dark .btn-info:focus {
+	background-color: #0f6870;
+}
+html.theme-dark .btn-success,
+html.theme-dark .btn-success:hover,
+html.theme-dark .btn-success:focus {
+	background-color: #1c8a58;
+	color: #fff;
+}
+html.theme-dark .btn-success:hover,
+html.theme-dark .btn-success:focus {
+	background-color: #166e46;
+}
+html.theme-dark .btn-danger,
+html.theme-dark .btn-danger:hover,
+html.theme-dark .btn-danger:focus {
+	background-color: #d23b2e;
+	color: #fff;
+}
+html.theme-dark .btn-danger:hover,
+html.theme-dark .btn-danger:focus {
+	background-color: #b12e23;
+}
+html.theme-dark .btn-warning,
+html.theme-dark .btn-warning:hover,
+html.theme-dark .btn-warning:focus,
+html.theme-dark #imagestools #btn_foldcols,
+html.theme-dark #themeToggle {
+	background-color: #f0b429;
+	color: #1a1408;
+}
+html.theme-dark .btn-warning:hover,
+html.theme-dark .btn-warning:focus,
+html.theme-dark #themeToggle:hover {
+	background-color: #d9a01f;
+	color: #1a1408;
+}
+html.theme-dark .toolbar .btn[disabled],
+html.theme-dark .toolbar .btn.disabled {
+	opacity: 1;
+	color: #fff;
+	background-color: #1f7eb0;
+}
+html.theme-dark #comboGlanceOpen {
+	background: #0f7a68;
+	color: #fff;
+}
+html.theme-dark #imagestools #btn_foldcols.on {
+	background-color: #1f7eb0;
+	color: #fff;
+}
+html.theme-dark #comboPick option {
+	color: #1c282f;
+}
