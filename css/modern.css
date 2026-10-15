@@ -144,13 +144,16 @@ div#toptoggle i:hover {
 }
 #themeToggle {
 	position: absolute;
-	top: 8px;
-	right: 10px;
+	top: 24px;
+	right: 12px;
 	z-index: 2;
 	height: auto;
 	line-height: 16px;
 	padding: 4px 10px;
 	font-weight: bold;
+}
+.topcol3 {
+	padding-right: 118px;
 }
 
 html.theme-dark body#page {
