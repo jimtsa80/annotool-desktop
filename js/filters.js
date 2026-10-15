@@ -226,15 +226,10 @@ function filter_loadImg(a) {
         a.onloadend = function(a) {
             var b = new Image;
             b.onload = function() {
-                b.width == imWidth && b.height == imHeight && void 0 !== im ? im.url = a.target.result : (imWidth = b.width, imHeight = b.height, 730 < imWidth && (imAspectRatio =
-                    imWidth / imHeight, imWidth = Math.abs(730), imHeight = 1 / imAspectRatio * imWidth), void 0 !== im && brd.removeObject(im), im = brd.create("image", [a.target.result, [1, imHeight],
-                    [imWidth, imHeight]
-                ], {
-                    layer: 0,
-                    highlightFillColor: "none",
-                    hightlighted: "off"
-                }), im.visProp.highlight = !1, im.isDraggable = !1, document.getElementById("box").setAttribute("style", "width:" + imWidth + "px;height:" + imHeight + "px;"), brd.resizeContainer(imWidth, imHeight), brd.setBoundingBox([1, 1, imWidth, imHeight], !1));
-                brd.update();
+                imNaturalW = b.width;
+                imNaturalH = b.height;
+                var size = fitBoard(b.width, b.height);
+                placeBoardImage(a.target.result, size.w, size.h);
                 filter_afterChangeImg();
                 imReadFlag = !1
             };

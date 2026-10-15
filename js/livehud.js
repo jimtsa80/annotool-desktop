@@ -382,7 +382,7 @@
 			panel.style.right = "auto";
 			return;
 		}
-		var gutter = (window.innerWidth - 1170) / 2;
+		var gutter = (window.innerWidth - 1280) / 2;
 		panel.style.top = "132px";
 		if (gutter >= 300) {
 			panel.style.right = "12px";

@@ -1,5 +1,5 @@
 #comboGlance {
-	width: 1170px;
+	width: 1280px;
 	margin: 0 auto;
 	padding: 0 8px 6px;
 	box-sizing: border-box;
@@ -30,6 +30,32 @@
 #imagestools #btn_captions.on {
 	background: #1f8a4c;
 	border-color: #176b3b;
+}
+#btn_foldcols {
+	float: right;
+	margin: 1px 0 0 6px;
+	font-weight: bold;
+	min-width: 64px;
+	color: #333;
+}
+#btn_foldcols.on {
+	background: #1f6f9a;
+	border-color: #16567a;
+	color: #fff;
+}
+#mainPart.cols-folded #col2,
+#mainPart.cols-folded #col3 {
+	display: none;
+}
+#mainPart.cols-folded #selectColumns {
+	width: 52px;
+	height: auto;
+}
+#mainPart.cols-folded #hits {
+	height: 620px;
+}
+#mainPart.cols-folded #box {
+	width: 1220px;
 }
 #comboGlanceBody {
 	flex: 1;

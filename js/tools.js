@@ -1,4 +1,4 @@
-$('.toolbar button').attr('disabled','true');
+$('.toolbar button').not('#btn_foldcols').attr('disabled','true');
 
 //// TOOLS BUTTON
 $('a#jpgsave').on( 'click',  function(e) { e.preventDefault(); dlimg(); return false; } );

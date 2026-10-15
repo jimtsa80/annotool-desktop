@@ -13,8 +13,8 @@
 	<link rel="stylesheet" href="css/libs/select.dataTables.min.css" />
 	<link rel="stylesheet" href="css/libs/buttons.dataTables.min.css" />
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Didact+Gothic&amp;subset=greek">
-	<link rel="stylesheet" href="css/webannotool.min.css" rel="stylesheet">
-	<link rel="stylesheet" href="css/livehud.css?v=6">
+	<link rel="stylesheet" href="css/webannotool.min.css?v=2" rel="stylesheet">
+	<link rel="stylesheet" href="css/livehud.css?v=9">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
 	
 
@@ -93,6 +93,7 @@
 			<span id="AnnotatorName" class="editable"></span>
 			
 			<span id="resizefname">
+				<button id="btn_foldcols" type="button" class="btn btn-warning btn-xs shadow" title="κρύψε brands και locations για μεγαλύτερη εικόνα">Στήλες</button>
 				<button id="lastButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadLastImg();">Τέλος</button>
 				<button id="nextButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadNextImg();">Next</button>
 				<button id="prevButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadPrevImg();">Prev</button>
@@ -330,12 +331,12 @@
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap.js"></script>
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap-pause.js"></script>
     <script type="text/javascript" src="js/libs/mousetrap/mousetrap-bind-dictionary.min.js"></script>	
-    <script type="text/javascript" src="js/webannotool.js?v=7"></script>
+    <script type="text/javascript" src="js/webannotool.js?v=10"></script>
 	<script type="text/javascript" src="js/keyboard.js"></script>
 	<script type="text/javascript" src="js/imports.js?v=6"></script>
 	<script type="text/javascript" src="js/exports.js"></script>
-	<script type="text/javascript" src="js/filters.js"></script>
-	<script type="text/javascript" src="js/tools.js"></script>
+	<script type="text/javascript" src="js/filters.js?v=3"></script>
+	<script type="text/javascript" src="js/tools.js?v=2"></script>
 	<script type="text/javascript" src="js/mydatatables.js"></script>
 	<script type="text/javascript" src="js/colors.js"></script>
 	<div id="comboPanel" aria-hidden="true">
@@ -354,7 +355,7 @@
 	</div>
 
 	<script type="text/javascript" src="js/compare.js"></script>
-	<script type="text/javascript" src="js/livehud.js?v=7"></script>
+	<script type="text/javascript" src="js/livehud.js?v=8"></script>
 </body>
 
 </html>

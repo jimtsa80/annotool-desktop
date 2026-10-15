@@ -62,7 +62,10 @@ prefsInput = document.getElementById("projectPrefs"),
 loadAnn = document.getElementById("loadAnn"),
 loadPresets = document.getElementById("loadPresets"),
 // loadOpts = document.getElementById("loadOpts"),
-imgNameInput = document.getElementById("imageName");
+imgNameInput = document.getElementById("imageName"),
+colsFolded = false,
+imNaturalW = 0,
+imNaturalH = 0,
 boxborder = "#4fe2ff",
 boxborderwidth = 2,
 highlightstrokecolor = "orange",
@@ -252,7 +255,7 @@ function clearProjectFolderSelection() {
     document.getElementById("projectFolderBox").value = "";
     $("#projectFolderBox").attr( 'title', "");
     if (brd && brd.renderer) try {
-        JXG.JSXGraph.freeBoard(brd), document.getElementById("box").setAttribute("style", "width:730px;height:580px;"), imIndices = [], imAll = {}, im = void 0
+        JXG.JSXGraph.freeBoard(brd), document.getElementById("box").setAttribute("style", "width:840px;height:580px;"), imIndices = [], imAll = {}, im = void 0
     } catch (a) {
         console.log("Problem while initializing JSX board. Error: " + a.message)
     }
@@ -336,7 +339,7 @@ function initJSXBoard() {
     if ("" !== document.getElementById("projectFolder").value) {
         if (brd && brd.renderer) try {
             JXG.JSXGraph.freeBoard(brd), 
-			document.getElementById("box").setAttribute("style", "width:730px;height:580px;"), 
+			document.getElementById("box").setAttribute("style", "width:840px;height:580px;"), 
 			imIndices = [], 
 			imAll = {}, 
 			im = void 0
@@ -664,6 +667,79 @@ function gotoImg_noanno(e) {
     }
 }
 
+function fitBoard(naturalW, naturalH) {
+    var maxWidth = colsFolded ? 1220 : 840;
+    var maxHeight = colsFolded ? 780 : 700;
+    var minW = colsFolded ? 1100 : 800;
+    var minH = colsFolded ? 640 : 560;
+    var w = naturalW, h = naturalH, aspect = naturalW / naturalH;
+    if (naturalW > maxWidth || naturalH > maxHeight) {
+        if (naturalW > naturalH) {
+            w = maxWidth;
+            h = Math.round(w / aspect);
+        } else {
+            h = maxHeight;
+            w = Math.round(h * aspect);
+        }
+    }
+    if (w < minW || h < minH) {
+        var fit = Math.max(minW / w, minH / h);
+        w = Math.round(w * fit);
+        h = Math.round(h * fit);
+    }
+    if (colsFolded && w > maxWidth) {
+        var scale = maxWidth / w;
+        w = maxWidth;
+        h = Math.round(h * scale);
+    }
+    return { w: w, h: h };
+}
+
+function placeBoardImage(url, w, h) {
+    if (typeof im !== "undefined" && im) {
+        try { brd.removeObject(im); } catch (err) {}
+        im = void 0;
+    }
+    imWidth = w;
+    imHeight = h;
+    im = brd.create("image", [url, [1, h], [w, h]], {
+        layer: 0,
+        highlightFillColor: mouseoverfillcolor,
+        hightlighted: "off"
+    });
+    im.visProp.highlight = !1;
+    im.isDraggable = !1;
+    document.getElementById("box").setAttribute("style", "width:" + w + "px;height:" + h + "px;");
+    brd.resizeContainer(w, h);
+    brd.setBoundingBox([1, 1, w, h], !1);
+    brd.update();
+}
+
+function syncColsFoldClass() {
+    var main = document.getElementById("mainPart");
+    if (main) main.classList.toggle("cols-folded", colsFolded);
+    var btn = document.getElementById("btn_foldcols");
+    if (!btn) return;
+    btn.classList.toggle("on", colsFolded);
+    btn.title = colsFolded ? "δείξε brands και locations" : "κρύψε brands και locations για μεγαλύτερη εικόνα";
+    btn.textContent = "Στήλες";
+}
+
+function setColsFolded(on) {
+    if (imReadFlag) return;
+    colsFolded = !!on;
+    try { localStorage.setItem("annotool.colsFolded", colsFolded ? "1" : "0"); } catch (e) {}
+    syncColsFoldClass();
+    if (!brd || typeof im === "undefined" || !im || !imNaturalW) return;
+    var url = im.url;
+    storeAnnotationImg();
+    removeAllObj();
+    var size = fitBoard(imNaturalW, imNaturalH);
+    placeBoardImage(url, size.w, size.h);
+    loadAnnotationImg();
+    if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
+}
+
 function loadImg(a) {
     if (0 < nullAnnoFlag) { 
         highlightNull();
@@ -689,47 +765,10 @@ function loadImg(a) {
         fileReader.onloadend = function(event) {
             let img = new Image();
             img.onload = function() {
-                let maxWidth = 730;  // Slightly smaller max width
-                let maxHeight = 700; // Slightly smaller max height
-                let aspectRatio = img.width / img.height;
-
-                // Resize images moderately
-                if (img.width > maxWidth || img.height > maxHeight) {
-                    if (img.width > img.height) {
-                        imWidth = maxWidth;
-                        imHeight = Math.round(imWidth / aspectRatio);
-                    } else {
-                        imHeight = maxHeight;
-                        imWidth = Math.round(imHeight * aspectRatio);
-                    }
-                } else {
-                    imWidth = img.width;
-                    imHeight = img.height;
-                }
-
-                // Ensure minimum size for annotation tools
-                if (imWidth < 700) imWidth = 700;
-                if (imHeight < 500) imHeight = 500;
-
-                if (typeof im !== "undefined") brd.removeObject(im);
-                
-                im = brd.create("image", 
-                    [event.target.result, [1, imHeight], [imWidth, imHeight]], 
-                    {
-                        layer: 0,
-                        highlightFillColor: mouseoverfillcolor,
-                        hightlighted: "off"
-                    }
-                );
-
-                im.visProp.highlight = !1;
-                im.isDraggable = !1;
-
-                document.getElementById("box").setAttribute("style", "width:" + imWidth + "px;height:" + imHeight + "px;");
-                brd.resizeContainer(imWidth, imHeight);
-                brd.setBoundingBox([1, 1, imWidth, imHeight], !1);
-                
-                brd.update();
+                imNaturalW = img.width;
+                imNaturalH = img.height;
+                var size = fitBoard(img.width, img.height);
+                placeBoardImage(event.target.result, size.w, size.h);
                 afterChangeImg();
 
                 if (lockedpreset !== "") {
@@ -989,9 +1028,18 @@ function storeEXIFdataImg() {
 
 function loadAnnotationImg() {
     if (allAnnotations.images.hasOwnProperty(imName)) {
-        var a = allAnnotations.images[imName].annotations;
+        var stored = allAnnotations.images[imName];
+        var a = stored.annotations;
+        var sx = 1, sy = 1;
+        if (stored.width > 0 && stored.height > 0 && imWidth > 0 && imHeight > 0) {
+            sx = imWidth / stored.width;
+            sy = imHeight / stored.height;
+        }
         brd.suspendUpdate();
-        for (var b = 0, c = a.length; b < c; b++) createPolygon(a[b].startPoint, a[b].diagPoint).annotation = {
+        for (var b = 0, c = a.length; b < c; b++) createPolygon(
+            [a[b].startPoint[0] * sx, a[b].startPoint[1] * sy],
+            [a[b].diagPoint[0] * sx, a[b].diagPoint[1] * sy]
+        ).annotation = {
             group: a[b].group,
             brand: a[b].brand,
             tpoint: a[b].tpoint,
@@ -1636,5 +1684,9 @@ var switchToSpan = function () {
 	}
 };
 $("span.editable").on("click", switchToInput);
+
+try { colsFolded = localStorage.getItem("annotool.colsFolded") === "1"; } catch (e) {}
+syncColsFoldClass();
+$("#btn_foldcols").on("click", function () { setColsFolded(!colsFolded); });
 
 

@@ -120,7 +120,7 @@ input#projectPrefsBox, input#projectFolderBox {
 	background:#465b65;
 }
 #title-row {
-	width: 1170px;
+	width: 1280px;
 	margin: 0 auto;
 }
 #title {
@@ -214,7 +214,7 @@ li.offsearch {
     display: none;
 }
 #mainPart {
-  width: 1170px;
+  width: 1280px;
   padding: 0;
 }
 .jxgbox {
@@ -228,7 +228,7 @@ li.offsearch {
   float: left;
 }
 #box {
-  width: 730px;
+  width: 840px;
   height: 580px;
   padding: 2px 0 0 0 !important;
   border: 0;
@@ -375,7 +375,7 @@ input#searchbrands {
 }
 .filtered{ color:red; }
 #img-out {
-  width: 730px;
+  width: 840px;
   height: 580px;
   padding: 0 !important;
 }
