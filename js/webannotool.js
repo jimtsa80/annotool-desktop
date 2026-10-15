@@ -255,7 +255,7 @@ function clearProjectFolderSelection() {
     document.getElementById("projectFolderBox").value = "";
     $("#projectFolderBox").attr( 'title', "");
     if (brd && brd.renderer) try {
-        JXG.JSXGraph.freeBoard(brd), document.getElementById("box").setAttribute("style", "width:840px;height:580px;"), imIndices = [], imAll = {}, im = void 0
+        JXG.JSXGraph.freeBoard(brd), document.getElementById("box").setAttribute("style", "width:900px;height:520px;"), imIndices = [], imAll = {}, im = void 0
     } catch (a) {
         console.log("Problem while initializing JSX board. Error: " + a.message)
     }
@@ -339,7 +339,7 @@ function initJSXBoard() {
     if ("" !== document.getElementById("projectFolder").value) {
         if (brd && brd.renderer) try {
             JXG.JSXGraph.freeBoard(brd), 
-			document.getElementById("box").setAttribute("style", "width:840px;height:580px;"), 
+			document.getElementById("box").setAttribute("style", "width:900px;height:520px;"), 
 			imIndices = [], 
 			imAll = {}, 
 			im = void 0
@@ -668,29 +668,18 @@ function gotoImg_noanno(e) {
 }
 
 function fitBoard(naturalW, naturalH) {
-    var maxWidth = colsFolded ? 1220 : 840;
-    var maxHeight = colsFolded ? 780 : 700;
-    var minW = colsFolded ? 1100 : 800;
-    var minH = colsFolded ? 640 : 560;
-    var w = naturalW, h = naturalH, aspect = naturalW / naturalH;
-    if (naturalW > maxWidth || naturalH > maxHeight) {
-        if (naturalW > naturalH) {
-            w = maxWidth;
-            h = Math.round(w / aspect);
-        } else {
-            h = maxHeight;
-            w = Math.round(h * aspect);
-        }
-    }
-    if (w < minW || h < minH) {
-        var fit = Math.max(minW / w, minH / h);
-        w = Math.round(w * fit);
-        h = Math.round(h * fit);
-    }
-    if (colsFolded && w > maxWidth) {
-        var scale = maxWidth / w;
+    var maxWidth = colsFolded ? 1290 : 900;
+    var maxHeight = colsFolded ? 760 : 640;
+    var w = naturalW, h = naturalH;
+    if (!(w > 0) || !(h > 0)) return { w: maxWidth, h: colsFolded ? 720 : 506 };
+    var fit = Math.min(maxWidth / w, maxHeight / h, 1);
+    var minW = colsFolded ? 1100 : 860;
+    if (w * fit < minW) fit = Math.min(minW / w, maxWidth / w, maxHeight / h);
+    w = Math.round(w * fit);
+    h = Math.round(h * fit);
+    if (w > maxWidth) {
+        h = Math.round(h * maxWidth / w);
         w = maxWidth;
-        h = Math.round(h * scale);
     }
     return { w: w, h: h };
 }
