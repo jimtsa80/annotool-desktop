@@ -551,6 +551,20 @@ $('button#edittpoint').click(function() {
 	}
 })
 
+function brandsAbc(){
+	$("#brands > ul > li.group > ul").each(function () {
+		var ul = $(this);
+		var items = ul.children("li").get();
+		items.sort(function (a, b) {
+			return $(a).text().localeCompare($(b).text(), undefined, { sensitivity: "base", numeric: true });
+		});
+		$.each(items, function (i, li) {
+			ul.append(li);
+		});
+	});
+	listedited++;
+}
+
 function tpointsAbc(){		//done
 	var items = $('#tpoints li').get();
 	items.sort(function(a,b){
