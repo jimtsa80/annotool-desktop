@@ -385,17 +385,28 @@
 			clearPending();
 			learnVisible();
 		});
-		if (window.Mousetrap) {
-			Mousetrap.bind("enter", function (e) {
+		var box = document.getElementById("box");
+		if (box) {
+			box.addEventListener("click", function (e) {
 				if (!pending) return;
-				if (e.preventDefault) e.preventDefault();
-				accept();
-			});
-			Mousetrap.bind("esc", function () {
-				if (!pending) return;
-				clearPending();
+				if (e.target && e.target.id === "suggestChip") accept();
 			});
 		}
+		document.addEventListener("keydown", function (e) {
+			if (!pending) return;
+			var key = e.key || "";
+			var code = e.keyCode || e.which;
+			var enter = key === "Enter" || code === 13;
+			var esc = key === "Escape" || code === 27;
+			if (!enter && !esc) return;
+			var el = e.target;
+			var id = el && el.id;
+			if (el && (id === "newbrand" || id === "newtpoint" || (el.classList && el.classList.contains("editable")))) return;
+			e.preventDefault();
+			e.stopPropagation();
+			if (esc) clearPending();
+			else accept();
+		}, true);
 		setInterval(learnVisible, 2000);
 	}
 

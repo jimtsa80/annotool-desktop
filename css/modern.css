@@ -342,7 +342,8 @@ html.theme-dark #comboPick option {
 	line-height: 20px;
 	padding: 4px 10px;
 	border-radius: 6px;
-	pointer-events: none;
+	pointer-events: auto;
+	cursor: pointer;
 	white-space: nowrap;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
