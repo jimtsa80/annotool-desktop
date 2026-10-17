@@ -251,11 +251,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
 					for ( var e = 0, g = a.length; e < g; e++ ){ 
-						a[e].annotation.group = b.split("__")[0], 
-						a[e].annotation.brand = b.split("__")[1], 
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10)+1, 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = b.split("__")[0];
+						a[e].annotation.brand = b.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10)+1;
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				$('#hits').val( parseInt(d, 10)+1 );
@@ -268,11 +269,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
 					for ( var e = 0, g = a.length; e < g; e++ ){ 
-						a[e].annotation.group = b.split("__")[0], 
-						a[e].annotation.brand = b.split("__")[1],  
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10)-1, 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = b.split("__")[0];
+						a[e].annotation.brand = b.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10)-1;
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				$('#hits').val(parseInt(d, 10)-1);
@@ -289,11 +291,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != curconn && "" != c) {
 					for ( var e = 0, g = a.length; e < g; e++ ){ 
-						a[e].annotation.group = curconn.split("__")[0], 
-						a[e].annotation.brand = curconn.split("__")[1], 
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10), 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = curconn.split("__")[0];
+						a[e].annotation.brand = curconn.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10);
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				if ( cIndex+1 < $("#tpoints ul li").length ) {	$("#tpoints ul li").eq(cIndex+1).addClass('selected')}
@@ -309,11 +312,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
 					for ( e = 0; e < a.length; e++ ){ 
-						a[e].annotation.group = b.split("__")[0], 
-						a[e].annotation.brand = b.split("__")[1], 
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10), 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = b.split("__")[0];
+						a[e].annotation.brand = b.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10);
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				if ( cIndex > 0 ) {	$("#tpoints ul li").eq(cIndex-1).addClass('selected')}

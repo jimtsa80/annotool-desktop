@@ -114,11 +114,12 @@ $( "#hits" ).change(function(a) {
 			new Noty({ type: 'error', theme: 'mint', layout: 'topRight',  text: 'έχεις επιλέξει περισσότερα από ένα τετράγωνα',  timeout: 1000,  closeWith: ['click', 'button'],}).show();
 		}
         for (var e = 0, g = a.length; e < g; e++){ 
-		a[e].annotation.group = b.split("__")[0], 
-		a[e].annotation.brand = b.split("__")[1], 
-		a[e].annotation.tpoint = c, 
-		a[e].annotation.hits = parseInt(d, 10), 
-		nullAnnoFlag--;
+		var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+		a[e].annotation.group = b.split("__")[0];
+		a[e].annotation.brand = b.split("__")[1];
+		a[e].annotation.tpoint = c;
+		a[e].annotation.hits = parseInt(d, 10);
+		if (wasEmpty) nullAnnoFlag--;
         dehighlightAllObj()
 		}
     }else{
@@ -664,7 +665,8 @@ function initJSXBoard() {
                         })
                     });
                     brd.unsuspendUpdate();
-                    brd.updateInfobox(x)
+                    brd.updateInfobox(x);
+                    if (window.AnnoSuggest) AnnoSuggest.offer(t);
                 }
             })
         }

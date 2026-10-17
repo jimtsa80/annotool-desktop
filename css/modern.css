@@ -329,6 +329,24 @@ html.theme-dark #imagestools #btn_foldcols.on {
 html.theme-dark #comboPick option {
 	color: #1c282f;
 }
+#suggestChip {
+	position: absolute;
+	left: 8px;
+	bottom: 8px;
+	z-index: 6;
+	display: none;
+	background: #f0b429;
+	color: #1a1408;
+	font-weight: bold;
+	font-size: 14px;
+	line-height: 20px;
+	padding: 4px 10px;
+	border-radius: 6px;
+	pointer-events: none;
+	white-space: nowrap;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+#suggestChip.on { display: block; }
 html.theme-dark,
 html.theme-dark #brands,
 html.theme-dark #tpoints,
