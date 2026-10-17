@@ -227,8 +227,43 @@
 	function showChip() {
 		var el = chip();
 		if (!el || !pending) return;
-		el.textContent = pending.brand + " · " + pending.tpoint + " · " + Math.round(pending.sim * 100) + "% · Enter";
+		el.textContent = pending.brand + " · " + pending.tpoint + " · " + Math.round(pending.sim * 100) + "% · " + pending.hits + " hits · Enter";
 		el.className = "on";
+	}
+
+	function usualHits(brand, tpoint) {
+		var counts = {};
+		function add(ann) {
+			if (!ann) return;
+			if ((ann.brand || "").trim() !== brand || (ann.tpoint || "").trim() !== tpoint) return;
+			var h = parseInt(ann.hits, 10);
+			if (!(h >= 1)) return;
+			counts[h] = (counts[h] || 0) + 1;
+		}
+		var images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
+		var name, list, i, obj;
+		for (name in images) {
+			if (!images.hasOwnProperty(name) || name === imName) continue;
+			list = images[name].annotations || [];
+			for (i = 0; i < list.length; i++) add(list[i]);
+		}
+		if (typeof brd !== "undefined" && brd && brd.objectsList) {
+			for (i = 0; i < brd.objectsList.length; i++) {
+				obj = brd.objectsList[i];
+				if (obj && obj.getType && obj.getType() === "polygon") add(obj.annotation);
+			}
+		}
+		var best = 0, bestN = 0, tie = false, key;
+		for (key in counts) {
+			if (!counts.hasOwnProperty(key)) continue;
+			if (counts[key] > bestN) {
+				bestN = counts[key];
+				best = parseInt(key, 10);
+				tie = false;
+			} else if (counts[key] === bestN) tie = true;
+		}
+		if (!bestN || tie) return 1;
+		return best;
 	}
 
 	function rank(vec, edge, pos) {
@@ -364,7 +399,8 @@
 						group: known.group,
 						brand: known.brand,
 						tpoint: known.tpoint,
-						sim: pick.sim
+						sim: pick.sim,
+						hits: usualHits(known.brand, known.tpoint)
 					};
 					showChip();
 				});
@@ -391,6 +427,9 @@
 		poly.annotation.group = pending.group;
 		poly.annotation.brand = pending.brand;
 		poly.annotation.tpoint = pending.tpoint;
+		poly.annotation.hits = pending.hits || 1;
+		var hitsBox = document.getElementById("hits");
+		if (hitsBox) hitsBox.value = String(poly.annotation.hits);
 		if (!poly.annotation.timestamp) poly.annotation.timestamp = new Date().toISOString();
 		if (wasEmpty && typeof nullAnnoFlag !== "undefined") nullAnnoFlag--;
 		selectCombo(pending.group, pending.brand, pending.tpoint);
