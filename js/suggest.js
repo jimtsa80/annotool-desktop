@@ -1,6 +1,8 @@
 (function () {
 	var GRID = 16;
+	var EDGE = 32;
 	var MIN_SIM = 0.82;
+	var MIN_EDGE = 0.58;
 	var MIN_SUPPORT = 3;
 	var MAX_PER_COMBO = 8;
 	var examples = [];
@@ -144,10 +146,40 @@
 		}
 		norm = Math.sqrt(norm) || 1;
 		for (var k = 0; k < vec.length; k++) vec[k] /= norm;
-		cb(vec, {
+		var shapeCanvas = document.createElement("canvas");
+		shapeCanvas.width = EDGE;
+		shapeCanvas.height = EDGE;
+		var shapeCtx = shapeCanvas.getContext("2d");
+		shapeCtx.drawImage(image, sx0, sy0, sw, sh, 0, 0, EDGE, EDGE);
+		var shapeData = shapeCtx.getImageData(0, 0, EDGE, EDGE).data;
+		cb(vec, edgeMap(shapeData, EDGE, EDGE), {
 			x: (rect.x + rect.w / 2) / bw,
 			y: (rect.y + rect.h / 2) / bh
 		});
+	}
+
+	function edgeMap(data, w, h) {
+		var lum = [], i, x, y;
+		for (i = 0; i < data.length; i += 4) {
+			lum.push(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+		}
+		var edge = [];
+		for (y = 0; y < h; y++) {
+			for (x = 0; x < w; x++) {
+				var xm = x > 0 ? x - 1 : x;
+				var xp = x < w - 1 ? x + 1 : x;
+				var ym = y > 0 ? y - 1 : y;
+				var yp = y < h - 1 ? y + 1 : y;
+				var gx = lum[y * w + xp] - lum[y * w + xm];
+				var gy = lum[yp * w + x] - lum[ym * w + x];
+				edge.push(Math.sqrt(gx * gx + gy * gy) / 255);
+			}
+		}
+		var norm = 0;
+		for (i = 0; i < edge.length; i++) norm += edge[i] * edge[i];
+		norm = Math.sqrt(norm) || 1;
+		for (i = 0; i < edge.length; i++) edge[i] /= norm;
+		return edge;
 	}
 
 	function cosine(a, b) {
@@ -199,14 +231,18 @@
 		el.className = "on";
 	}
 
-	function rank(vec, pos) {
-		var scored = [], i, sim, ex;
+	function rank(vec, edge, pos) {
+		var scored = [], i, color, shape, ex;
 		for (i = 0; i < examples.length; i++) {
 			ex = examples[i];
-			sim = cosine(vec, ex.vec);
+			if (!ex.edge) continue;
+			color = cosine(vec, ex.vec);
+			shape = cosine(edge, ex.edge);
 			scored.push({
 				ex: ex,
-				sim: sim,
+				sim: Math.min(color, shape),
+				color: color,
+				shape: shape,
 				dist: Math.abs(pos.x - ex.posx) + Math.abs(pos.y - ex.posy)
 			});
 		}
@@ -221,14 +257,14 @@
 			return a.dist - b.dist;
 		});
 		var pick = pool[0];
-		if (!pick || pick.sim < MIN_SIM) return null;
+		if (!pick || pick.color < MIN_SIM || pick.shape < MIN_EDGE) return null;
 		var pkey = pick.ex.brand + "\0" + pick.ex.tpoint;
 		var support = 0, agree = 0;
 		for (i = 0; i < scored.length; i++) {
 			var key = scored[i].ex.brand + "\0" + scored[i].ex.tpoint;
 			if (key !== pkey) continue;
 			support++;
-			if (scored[i].sim >= MIN_SIM) agree++;
+			if (scored[i].color >= MIN_SIM && scored[i].shape >= MIN_EDGE) agree++;
 		}
 		if (support < MIN_SUPPORT || agree < 2) return null;
 		for (i = 0; i < scored.length; i++) {
@@ -243,11 +279,11 @@
 	function remember(row) {
 		var same = [], i;
 		for (i = 0; i < examples.length; i++) {
-			if (examples[i].brand === row.brand && examples[i].tpoint === row.tpoint) same.push(examples[i]);
+			if (examples[i].edge && examples[i].brand === row.brand && examples[i].tpoint === row.tpoint) same.push(examples[i]);
 		}
 		if (same.length >= MIN_SUPPORT) {
 			for (i = 0; i < same.length; i++) {
-				if (cosine(same[i].vec, row.vec) > 0.97) return;
+				if (cosine(same[i].vec, row.vec) > 0.97 && cosine(same[i].edge, row.edge) > 0.97) return;
 			}
 		}
 		examples.push(row);
@@ -276,9 +312,9 @@
 		var tpoint = (ann.tpoint || "").trim();
 		if (!brand || !tpoint) return;
 		if (!resolve(brand, tpoint)) return;
-		var sig = brand + "\0" + tpoint;
+		var sig = "e1\0" + brand + "\0" + tpoint;
 		if (poly._suggestSig === sig) return;
-		embed(poly, image, function (vec, pos) {
+		embed(poly, image, function (vec, edge, pos) {
 			if (poly._suggestSig === sig) return;
 			poly._suggestSig = sig;
 			remember({
@@ -286,6 +322,7 @@
 				brand: brand,
 				tpoint: tpoint,
 				vec: vec,
+				edge: edge,
 				posx: pos.x,
 				posy: pos.y
 			});
@@ -313,9 +350,9 @@
 			learnVisible();
 			withImage(function (image) {
 				if (!poly.annotation || poly.annotation.brand) return;
-				embed(poly, image, function (vec, pos) {
+				embed(poly, image, function (vec, edge, pos) {
 					if (!poly.annotation || poly.annotation.brand) return;
-					var pick = rank(vec, pos);
+					var pick = rank(vec, edge, pos);
 					if (!pick) {
 						if (pending && pending.poly === poly) clearPending();
 						return;
