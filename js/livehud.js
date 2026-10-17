@@ -344,8 +344,10 @@
 			var stored = images[name] && images[name].annotations && images[name].annotations.length;
 			if (!stored) bare++;
 		}
-		el.textContent = "απομένουν " + fmt(ahead) + " · χωρίς annotation " + fmt(bare);
-		el.title = "Από αυτή την εικόνα ως το τέλος: " + ahead + ". Εικόνες χωρίς κουτί: " + bare + " από " + total + ".";
+		var text = "απομένουν " + fmt(ahead) + " · χωρίς annotation " + fmt(bare);
+		var tip = "Από αυτή την εικόνα ως το τέλος: " + ahead + ". Εικόνες χωρίς κουτί: " + bare + " από " + total + ".";
+		if (el.textContent !== text) el.textContent = text;
+		if (el.title !== tip) el.title = tip;
 	}
 
 	function refresh() {
