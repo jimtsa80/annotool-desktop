@@ -249,6 +249,7 @@
 		el.style.bottom = "auto";
 		el.style.left = left + "px";
 		el.style.top = top + "px";
+		placeQuick();
 	}
 
 	function usualHits(brand, tpoint) {
@@ -399,8 +400,225 @@
 		});
 	}
 
+	var quick = null;
+	var typed = "";
+	var typeTimer = 0;
+
+	function quickEl() {
+		var el = document.getElementById("quickPick");
+		if (el) return el;
+		var box = document.getElementById("box");
+		if (!box) return null;
+		el = document.createElement("div");
+		el.id = "quickPick";
+		el.addEventListener("mousedown", function (e) { e.stopPropagation(); e.preventDefault(); });
+		el.addEventListener("click", onQuickClick);
+		box.appendChild(el);
+		return el;
+	}
+
+	function closeQuick() {
+		quick = null;
+		typed = "";
+		var el = document.getElementById("quickPick");
+		if (el) {
+			el.className = "";
+			el.innerHTML = "";
+		}
+	}
+
+	function freqBrands() {
+		var counts = (typeof listCounts === "function") ? listCounts().brands : {};
+		var rows = [], seen = {};
+		$("#brands ul li.brand").each(function () {
+			var id = this.id || "";
+			var cut = id.indexOf("__");
+			var group = cut < 0 ? "" : id.slice(0, cut);
+			var brand = $.trim($(this).text());
+			var key = group + "\0" + brand;
+			if (!brand || seen[key]) return;
+			seen[key] = 1;
+			rows.push({ group: group, brand: brand, n: counts[id] || 0 });
+		});
+		rows.sort(function (a, b) { return (b.n - a.n) || a.brand.localeCompare(b.brand); });
+		return rows;
+	}
+
+	function freqLocs(group, brand) {
+		var counts = (typeof listCounts === "function") ? listCounts().locs : {};
+		var conn = (typeof prefs !== "undefined" && prefs && prefs.conns) ? prefs.conns[group + "__" + brand] : null;
+		var list = (conn && conn.tpoints) || [];
+		var rows = [], seen = {}, i, name;
+		for (i = 0; i < list.length; i++) {
+			name = $.trim(list[i] || "");
+			if (!name || seen[name]) continue;
+			seen[name] = 1;
+			rows.push({ tpoint: name, n: counts[brand + "\0" + name] || 0 });
+		}
+		rows.sort(function (a, b) { return (b.n - a.n) || a.tpoint.localeCompare(b.tpoint); });
+		return rows;
+	}
+
+	function matches(name) {
+		if (!typed) return true;
+		return name.toLowerCase().indexOf(typed.toLowerCase()) === 0;
+	}
+
+	function shownBrands() {
+		var rows = freqBrands().filter(function (r) { return matches(r.brand); });
+		var used = rows.filter(function (r) { return r.n > 0; });
+		return (typed ? rows : (used.length ? used : rows)).slice(0, 8);
+	}
+
+	function shownLocs() {
+		var rows = freqLocs(quick.group, quick.brand).filter(function (r) { return matches(r.tpoint); });
+		var used = rows.filter(function (r) { return r.n > 0; });
+		return (typed ? rows : (used.length ? used : rows)).slice(0, 8);
+	}
+
+	function qpButton(label, attrs, cls) {
+		var b = document.createElement("button");
+		b.type = "button";
+		b.className = cls || "qp-item";
+		b.textContent = label;
+		var k;
+		for (k in attrs) if (attrs.hasOwnProperty(k)) b.setAttribute(k, attrs[k]);
+		return b;
+	}
+
+	function renderQuick() {
+		var el = quickEl();
+		if (!el || !quick) return;
+		while (el.firstChild) el.removeChild(el.firstChild);
+		el.className = "on";
+		if (typed) {
+			var hint = document.createElement("div");
+			hint.className = "qp-hint";
+			hint.textContent = typed;
+			el.appendChild(hint);
+		}
+		if (quick.step === "brand") {
+			var brands = shownBrands(), i;
+			if (!brands.length) {
+				var empty = document.createElement("div");
+				empty.className = "qp-hint";
+				empty.textContent = "κανένα brand";
+				el.appendChild(empty);
+			}
+			for (i = 0; i < brands.length; i++) {
+				el.appendChild(qpButton(brands[i].brand, { "data-act": "brand", "data-group": brands[i].group, "data-brand": brands[i].brand }));
+			}
+		} else {
+			el.appendChild(qpButton(quick.brand, { "data-act": "back" }, "qp-back"));
+			var locs = shownLocs();
+			for (i = 0; i < locs.length; i++) {
+				var on = locs[i].tpoint === quick.tpoint;
+				el.appendChild(qpButton(locs[i].tpoint, { "data-act": "loc", "data-loc": locs[i].tpoint }, on ? "qp-item on" : "qp-item"));
+			}
+			if (quick.tpoint) {
+				var row = document.createElement("div");
+				row.className = "qp-hits";
+				row.appendChild(qpButton("−", { "data-act": "hit", "data-dir": "-1" }, "qp-mini"));
+				var num = document.createElement("span");
+				num.textContent = quick.hits + " hits";
+				row.appendChild(num);
+				row.appendChild(qpButton("+", { "data-act": "hit", "data-dir": "1" }, "qp-mini"));
+				row.appendChild(qpButton("Enter", { "data-act": "ok" }, "qp-ok"));
+				el.appendChild(row);
+			}
+		}
+		placeQuick();
+	}
+
+	function placeQuick() {
+		var el = document.getElementById("quickPick");
+		var board = document.getElementById("box");
+		var chipEl = document.getElementById("suggestChip");
+		if (!el || !board || !quick || !quick.poly) return;
+		var rect = polyRect(quick.poly);
+		if (!rect) return;
+		var width = el.offsetWidth || 180;
+		var height = el.offsetHeight || 40;
+		var left = rect.x + rect.w + 8;
+		if (left + width > board.clientWidth - 4) left = rect.x - width - 8;
+		if (left < 4) left = 4;
+		var top = rect.y;
+		if (chipEl && chipEl.className.indexOf("on") !== -1) {
+			left = chipEl.offsetLeft;
+			top = chipEl.offsetTop + chipEl.offsetHeight + 4;
+		}
+		if (top + height > board.clientHeight - 4) top = Math.max(4, board.clientHeight - height - 4);
+		el.style.left = left + "px";
+		el.style.top = top + "px";
+	}
+
+	function openQuick(poly) {
+		quick = { poly: poly, step: "brand", group: "", brand: "", tpoint: "", hits: 1 };
+		typed = "";
+		renderQuick();
+	}
+
+	function chooseBrand(group, brand) {
+		if (!quick) return;
+		quick.step = "loc";
+		quick.group = group;
+		quick.brand = brand;
+		quick.tpoint = "";
+		quick.hits = 1;
+		typed = "";
+		renderQuick();
+	}
+
+	function commitQuick() {
+		if (!quick || !quick.poly || !quick.poly.annotation || !quick.brand || !quick.tpoint) return;
+		var poly = quick.poly;
+		var wasEmpty = !poly.annotation.brand || !poly.annotation.tpoint;
+		poly.annotation.group = quick.group;
+		poly.annotation.brand = quick.brand;
+		poly.annotation.tpoint = quick.tpoint;
+		poly.annotation.hits = quick.hits || 1;
+		var hitsBox = document.getElementById("hits");
+		if (hitsBox) hitsBox.value = String(poly.annotation.hits);
+		if (!poly.annotation.timestamp) poly.annotation.timestamp = new Date().toISOString();
+		if (wasEmpty && typeof nullAnnoFlag !== "undefined") nullAnnoFlag--;
+		selectCombo(quick.group, quick.brand, quick.tpoint);
+		closeQuick();
+		clearPending();
+		if (typeof brd !== "undefined" && brd) brd.update();
+		learnVisible();
+		if (typeof applyBrandOrder === "function") applyBrandOrder();
+		if (typeof applyTpointOrder === "function") applyTpointOrder();
+		if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
+	}
+
+	function onQuickClick(e) {
+		var btn = e.target && e.target.getAttribute ? e.target : null;
+		if (!btn || !btn.getAttribute("data-act") || !quick) return;
+		e.stopPropagation();
+		var act = btn.getAttribute("data-act");
+		if (act === "brand") chooseBrand(btn.getAttribute("data-group") || "", btn.getAttribute("data-brand") || "");
+		else if (act === "back") {
+			quick.step = "brand";
+			quick.tpoint = "";
+			typed = "";
+			renderQuick();
+		} else if (act === "loc") {
+			quick.tpoint = btn.getAttribute("data-loc") || "";
+			quick.hits = usualHits(quick.brand, quick.tpoint);
+			typed = "";
+			renderQuick();
+		} else if (act === "hit") {
+			var next = (quick.hits || 1) + (parseInt(btn.getAttribute("data-dir"), 10) || 0);
+			if (next < 1) next = 1;
+			if (next > 15) next = 15;
+			quick.hits = next;
+			renderQuick();
+		} else if (act === "ok") commitQuick();
+	}
+
 	function offer(poly) {
 		if (!poly || !poly.annotation || poly.annotation.brand || poly.annotation.tpoint) return;
+		openQuick(poly);
 		loadExamples(projectName(), function () {
 			learnVisible();
 			withImage(function (image) {
@@ -410,6 +628,7 @@
 					var pick = rank(vec, edge, pos);
 					if (!pick) {
 						if (pending && pending.poly === poly) clearPending();
+						placeQuick();
 						return;
 					}
 					var known = resolve(pick.ex.brand, pick.ex.tpoint);
@@ -464,6 +683,7 @@
 			var prep = prepareChangeImg;
 			window.prepareChangeImg = function () {
 				clearPending();
+				closeQuick();
 				return prep.apply(this, arguments);
 			};
 			window.prepareChangeImg._suggestWrapped = true;
@@ -481,6 +701,7 @@
 		}
 		$("#hits").on("change", function () {
 			clearPending();
+			closeQuick();
 			learnVisible();
 		});
 		var box = document.getElementById("box");
@@ -491,19 +712,41 @@
 			});
 		}
 		document.addEventListener("keydown", function (e) {
-			if (!pending) return;
+			if (!pending && !quick) return;
 			var key = e.key || "";
 			var code = e.keyCode || e.which;
 			var enter = key === "Enter" || code === 13;
-			var esc = key === "Escape" || code === 27;
-			if (!enter && !esc) return;
+			var esc = key === "Escape" || key === "Esc" || code === 27;
 			var el = e.target;
 			var id = el && el.id;
 			if (el && (id === "newbrand" || id === "newtpoint" || (el.classList && el.classList.contains("editable")))) return;
+			if (esc) {
+				e.preventDefault();
+				e.stopPropagation();
+				clearPending();
+				closeQuick();
+				return;
+			}
+			if (enter) {
+				e.preventDefault();
+				e.stopPropagation();
+				if (quick && quick.tpoint) commitQuick();
+				else if (quick && quick.step === "brand") {
+					var one = shownBrands();
+					if (one.length === 1) chooseBrand(one[0].group, one[0].brand);
+				} else if (pending) accept();
+				return;
+			}
+			if (!quick || key.length !== 1 || !/^[a-z0-9]$/i.test(key)) return;
 			e.preventDefault();
 			e.stopPropagation();
-			if (esc) clearPending();
-			else accept();
+			typed += key;
+			clearTimeout(typeTimer);
+			typeTimer = setTimeout(function () {
+				typed = "";
+				if (quick) renderQuick();
+			}, 800);
+			renderQuick();
 		}, true);
 		setInterval(learnVisible, 2000);
 	}

@@ -348,6 +348,62 @@ html.theme-dark #comboPick option {
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 #suggestChip.on { display: block; }
+#quickPick {
+	position: absolute;
+	z-index: 6;
+	display: none;
+	width: 190px;
+	max-height: 280px;
+	overflow: auto;
+	background: #1c2830;
+	color: #eef3f5;
+	border-radius: 8px;
+	padding: 6px;
+	text-align: left;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+#quickPick.on { display: block; }
+#quickPick .qp-hint {
+	font-size: 12px;
+	color: #f0b429;
+	padding: 0 4px 4px;
+}
+#quickPick button {
+	display: block;
+	width: 100%;
+	margin: 0 0 3px;
+	padding: 3px 8px;
+	border: 0;
+	border-radius: 4px;
+	background: #31414b;
+	color: #f4f8fa;
+	font-weight: bold;
+	text-align: left;
+	line-height: 18px;
+}
+#quickPick button.on,
+#quickPick button.qp-ok {
+	background: #f0b429;
+	color: #1a1408;
+}
+#quickPick .qp-hits {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 4px;
+}
+#quickPick .qp-hits span {
+	flex: 1;
+	text-align: center;
+	font-weight: bold;
+}
+#quickPick button.qp-mini,
+#quickPick button.qp-ok {
+	width: auto;
+	min-width: 28px;
+	text-align: center;
+	margin: 0;
+}
 #brandstools #brandsabc.clicked,
 #tpointstools #tpointsabc.clicked,
 html.theme-dark #brandstools #brandsabc.clicked,
