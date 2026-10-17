@@ -229,6 +229,26 @@
 		if (!el || !pending) return;
 		el.textContent = pending.brand + " · " + pending.tpoint + " · " + Math.round(pending.sim * 100) + "% · " + pending.hits + " hits · Enter";
 		el.className = "on";
+		placeChip();
+	}
+
+	function placeChip() {
+		var el = chip();
+		var board = document.getElementById("box");
+		if (!el || !board || !pending || !pending.poly) return;
+		var rect = polyRect(pending.poly);
+		if (!rect) return;
+		var width = el.offsetWidth || 220;
+		var height = el.offsetHeight || 28;
+		var left = rect.x + rect.w + 8;
+		if (left + width > board.clientWidth - 4) left = rect.x - width - 8;
+		if (left < 4) left = 4;
+		var top = rect.y;
+		if (top + height > board.clientHeight - 4) top = board.clientHeight - height - 4;
+		if (top < 4) top = 4;
+		el.style.bottom = "auto";
+		el.style.left = left + "px";
+		el.style.top = top + "px";
 	}
 
 	function usualHits(brand, tpoint) {
@@ -453,6 +473,8 @@
 			window.storeAnnotationImg = function () {
 				var result = store.apply(this, arguments);
 				learnVisible();
+				if (typeof applyBrandOrder === "function") applyBrandOrder();
+				if (typeof applyTpointOrder === "function") applyTpointOrder();
 				return result;
 			};
 			window.storeAnnotationImg._suggestWrapped = true;

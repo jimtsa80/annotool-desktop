@@ -551,35 +551,95 @@ $('button#edittpoint').click(function() {
 	}
 })
 
-function brandsAbc(){
+function listCounts() {
+	var brands = {}, locs = {};
+	function add(ann) {
+		if (!ann) return;
+		var b = $.trim(ann.brand || ""), t = $.trim(ann.tpoint || ""), g = $.trim(ann.group || "");
+		if (!b) return;
+		var id = g ? (g + "__" + b) : b;
+		brands[id] = (brands[id] || 0) + 1;
+		if (t) locs[b + "\0" + t] = (locs[b + "\0" + t] || 0) + 1;
+	}
+	var images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
+	var name, i, list, obj;
+	for (name in images) {
+		if (!images.hasOwnProperty(name) || (typeof imName !== "undefined" && name === imName)) continue;
+		list = images[name].annotations || [];
+		for (i = 0; i < list.length; i++) add(list[i]);
+	}
+	if (typeof brd !== "undefined" && brd && brd.objectsList) {
+		for (i = 0; i < brd.objectsList.length; i++) {
+			obj = brd.objectsList[i];
+			if (obj && obj.getType && obj.getType() === "polygon") add(obj.annotation);
+		}
+	}
+	return { brands: brands, locs: locs };
+}
+
+function byName(a, b) {
+	return $(a).text().localeCompare($(b).text(), undefined, { sensitivity: "base", numeric: true });
+}
+
+function applyBrandOrder() {
+	var box = document.getElementById("brands");
+	var top = box ? box.scrollTop : 0;
+	var alpha = $("#brandsabc").hasClass("clicked");
+	var counts = listCounts().brands;
 	$("#brands > ul > li.group > ul").each(function () {
 		var ul = $(this);
 		var items = ul.children("li").get();
 		items.sort(function (a, b) {
-			return $(a).text().localeCompare($(b).text(), undefined, { sensitivity: "base", numeric: true });
+			if (alpha) return byName(a, b);
+			var diff = (counts[b.id] || 0) - (counts[a.id] || 0);
+			return diff || byName(a, b);
 		});
-		$.each(items, function (i, li) {
-			ul.append(li);
-		});
+		$.each(items, function (i, li) { ul.append(li); });
 	});
+	if (box) box.scrollTop = top;
+}
+
+function applyTpointOrder() {
+	var box = document.getElementById("tpoints");
+	var top = box ? box.scrollTop : 0;
+	var ul = $("#tpoints ul");
+	if (!ul.length) return;
+	var alpha = $("#tpointsabc").hasClass("clicked");
+	var brand = $.trim($("#brands ul li.brand.selected").text() || "");
+	var counts = listCounts().locs;
+	var items = ul.children("li").get();
+	items.sort(function (a, b) {
+		if (alpha) return byName(a, b);
+		var ca = brand ? (counts[brand + "\0" + $(a).text()] || 0) : 0;
+		var cb = brand ? (counts[brand + "\0" + $(b).text()] || 0) : 0;
+		return (cb - ca) || byName(a, b);
+	});
+	$.each(items, function (i, li) { ul.append(li); });
+	if (box) box.scrollTop = top;
+}
+
+function brandsAbc() {
+	var btn = $("#brandsabc");
+	btn.toggleClass("clicked");
+	try { localStorage.setItem("annotool.brandsAlpha", btn.hasClass("clicked") ? "1" : "0"); } catch (e) {}
+	applyBrandOrder();
 	listedited++;
 }
 
-function tpointsAbc(){		//done
-	var items = $('#tpoints li').get();
-	items.sort(function(a,b){
-	  var keyA = $(a).text();
-	  var keyB = $(b).text();
-
-	  if (keyA < keyB) return -1;
-	  if (keyA > keyB) return 1;
-	  return 0;
-	});
-	var ul = $('#tpoints ul');
-	$.each(items, function(i, li){
-	  ul.append(li); /* This removes li from the old spot and moves it */
-	});
+function tpointsAbc() {
+	var btn = $("#tpointsabc");
+	btn.toggleClass("clicked");
+	try { localStorage.setItem("annotool.tpointsAlpha", btn.hasClass("clicked") ? "1" : "0"); } catch (e) {}
+	applyTpointOrder();
+	listedited++;
 }
+
+$(function () {
+	try {
+		if (localStorage.getItem("annotool.brandsAlpha") === "1") $("#brandsabc").addClass("clicked");
+		if (localStorage.getItem("annotool.tpointsAlpha") === "1") $("#tpointsabc").addClass("clicked");
+	} catch (e) {}
+});
 
 function tpointsFreq(){		//done
 	var brand = $("#brands li.selected");

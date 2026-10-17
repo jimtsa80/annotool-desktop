@@ -276,12 +276,14 @@ function disableGroups(){
 function brandsInit() {
 	$("#brands ul li ul li").addClass("brand");
 	$('#brands ul').sortable({disabled: true});	// MANDATORY FOR SORTABLE TO WORK : adds class "ui-sortable-handle"
+	if (typeof applyBrandOrder === "function") applyBrandOrder();
 	$("#brands ul li ul li").on("click", function(){
 			if ( !$(this).hasClass('selected') ){
 				$("#brands li").removeClass('selected');
 				$(this).addClass('selected');
 				
 				fillTouchpoints( $("#brands li.selected").attr('id') );
+				if (typeof applyTpointOrder === "function") applyTpointOrder();
 				tpointsInit();
 				$("#hits option:selected").prop("selected", false);
 			}
@@ -338,6 +340,7 @@ function fillTouchpoints(conn) {
 		$('#tpoints li').length = 0
 	}
 	$("#tpoints li").on("click", function(){ document.getElementById("hits").selectedIndex = -1; })
+	if (typeof applyTpointOrder === "function") applyTpointOrder();
 }
 
 
