@@ -1,6 +1,7 @@
 (function () {
 	var GRID = 16;
 	var MIN_SIM = 0.82;
+	var MIN_SUPPORT = 3;
 	var MAX_PER_COMBO = 8;
 	var examples = [];
 	var loadedProject = "";
@@ -222,8 +223,16 @@
 		var pick = pool[0];
 		if (!pick || pick.sim < MIN_SIM) return null;
 		var pkey = pick.ex.brand + "\0" + pick.ex.tpoint;
+		var support = 0, agree = 0;
 		for (i = 0; i < scored.length; i++) {
 			var key = scored[i].ex.brand + "\0" + scored[i].ex.tpoint;
+			if (key !== pkey) continue;
+			support++;
+			if (scored[i].sim >= MIN_SIM) agree++;
+		}
+		if (support < MIN_SUPPORT || agree < 2) return null;
+		for (i = 0; i < scored.length; i++) {
+			key = scored[i].ex.brand + "\0" + scored[i].ex.tpoint;
 			if (key === pkey) continue;
 			if (pick.sim - scored[i].sim < 0.03) return null;
 			break;
@@ -236,8 +245,10 @@
 		for (i = 0; i < examples.length; i++) {
 			if (examples[i].brand === row.brand && examples[i].tpoint === row.tpoint) same.push(examples[i]);
 		}
-		for (i = 0; i < same.length; i++) {
-			if (cosine(same[i].vec, row.vec) > 0.97) return;
+		if (same.length >= MIN_SUPPORT) {
+			for (i = 0; i < same.length; i++) {
+				if (cosine(same[i].vec, row.vec) > 0.97) return;
+			}
 		}
 		examples.push(row);
 		if (same.length + 1 > MAX_PER_COMBO) {
