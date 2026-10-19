@@ -202,8 +202,9 @@ Mousetrap.bind({
 $('input#brandsearch').keyup(function() {
 	// dehighlightAllObj();
 	$('#brands li').removeClass('offsearch'); //first clear prev search
+	var q = ($('input#brandsearch').val() || "").toLowerCase();
 	$('#brands li ul li').each( function(){
-		if ( ( $(this)[0].innerText ).toLowerCase().indexOf( $('input#brandsearch').val() ) < 0 ) $(this).addClass('offsearch')
+		if ( ( $(this)[0].innerText || "" ).toLowerCase().indexOf( q ) < 0 ) $(this).addClass('offsearch')
 	})
 })
 $("#brandsearchclear").click(function(){
@@ -213,8 +214,9 @@ $("#brandsearchclear").click(function(){
 $('input#tpointsearch').keyup(function() {
 	// dehighlightAllObj();
 	$('#tpoints li').removeClass('offsearch'); //first clear prev search
+	var q = ($('input#tpointsearch').val() || "").toLowerCase();
 	$('#tpoints li').each( function(){
-		if ( ( $(this)[0].innerText ).toLowerCase().indexOf( $('input#tpointsearch').val() ) < 0 ) $(this).addClass('offsearch')
+		if ( ( $(this)[0].innerText || "" ).toLowerCase().indexOf( q ) < 0 ) $(this).addClass('offsearch')
 	})
 })
 $("#tpointsearchclear").click(function(){
@@ -233,6 +235,18 @@ $(document).mousemove(function(event) {
 });
 	
 $(window).bind('mousewheel', function(e){
+	if (window.presetGrab) return;
+	if (window.AnnoSuggest && AnnoSuggest.liveHits && AnnoSuggest.liveHits() &&
+		$('#box').position().left < currentMousePos.x &&
+		currentMousePos.x < $('#box').position().left + $('#box').width() &&
+		currentMousePos.y > $('#box').position().top &&
+		currentMousePos.y < $('#box').position().top + $('#box').height() &&
+		!e.ctrlKey) {
+		e.preventDefault();
+		var dir = e.originalEvent.wheelDelta > 0 ? 1 : -1;
+		AnnoSuggest.setHits(AnnoSuggest.liveHits() + dir);
+		return;
+	}
 	if ( 1 == highlighted.length 
 		&& $('#box').position().left < currentMousePos.x
 		&& currentMousePos.x < $('#box').position().left + $('#box').width()
@@ -251,11 +265,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
 					for ( var e = 0, g = a.length; e < g; e++ ){ 
-						a[e].annotation.group = b.split("__")[0], 
-						a[e].annotation.brand = b.split("__")[1], 
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10)+1, 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = b.split("__")[0];
+						a[e].annotation.brand = b.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10)+1;
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				$('#hits').val( parseInt(d, 10)+1 );
@@ -268,11 +283,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
 					for ( var e = 0, g = a.length; e < g; e++ ){ 
-						a[e].annotation.group = b.split("__")[0], 
-						a[e].annotation.brand = b.split("__")[1],  
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10)-1, 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = b.split("__")[0];
+						a[e].annotation.brand = b.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10)-1;
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				$('#hits').val(parseInt(d, 10)-1);
@@ -289,11 +305,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != curconn && "" != c) {
 					for ( var e = 0, g = a.length; e < g; e++ ){ 
-						a[e].annotation.group = curconn.split("__")[0], 
-						a[e].annotation.brand = curconn.split("__")[1], 
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10), 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = curconn.split("__")[0];
+						a[e].annotation.brand = curconn.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10);
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				if ( cIndex+1 < $("#tpoints ul li").length ) {	$("#tpoints ul li").eq(cIndex+1).addClass('selected')}
@@ -309,11 +326,12 @@ $(window).bind('mousewheel', function(e){
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
 					for ( e = 0; e < a.length; e++ ){ 
-						a[e].annotation.group = b.split("__")[0], 
-						a[e].annotation.brand = b.split("__")[1], 
-						a[e].annotation.tpoint = c, 
-						a[e].annotation.hits = parseInt(d, 10), 
-						nullAnnoFlag--;
+						var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+						a[e].annotation.group = b.split("__")[0];
+						a[e].annotation.brand = b.split("__")[1];
+						a[e].annotation.tpoint = c;
+						a[e].annotation.hits = parseInt(d, 10);
+						if (wasEmpty) nullAnnoFlag--;
 					}
 				}
 				if ( cIndex > 0 ) {	$("#tpoints ul li").eq(cIndex-1).addClass('selected')}
@@ -349,6 +367,8 @@ function brandScrollTo() {
 /////////	TYPING CONTROL
 var typingTimer, chartyped = '' ;
 $(document).on('keydown', function(e) {
+	var typingTarget = e.target;
+	if (typingTarget && (typingTarget.tagName === "INPUT" || typingTarget.tagName === "TEXTAREA" || typingTarget.isContentEditable)) return;
 	if( $("#brands").css('background-color')=="rgba(255, 255, 255, 0)" ){	//an to mouseover einai sto brand list
 		Mousetrap.pause();
 		var keystr = String.fromCharCode(e.which);

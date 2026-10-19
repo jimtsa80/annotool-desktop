@@ -49,12 +49,14 @@ fileInput.addEventListener("change", function(a) {
     var folderName = b.replace(/\/+$/, "").split("/").pop();
     function putFolderOnFile() {
         if (!folderName) return;
-        prefs.projectName = folderName;
-        allAnnotations.project = folderName;
+        prefs.projectRoot = folderName;
+        var shown = (typeof activeCluster !== "undefined" && activeCluster && clusterGroups) ? activeCluster : folderName;
+        prefs.projectName = shown;
+        allAnnotations.project = shown;
         var nameEl = document.getElementById("projectName");
         if (!nameEl) return;
-        if (nameEl.tagName === "INPUT") nameEl.value = folderName;
-        else nameEl.textContent = folderName;
+        if (nameEl.tagName === "INPUT") nameEl.value = shown;
+        else nameEl.textContent = shown;
     }
     "" !== prefs.imgFoldername ? prefs.imgFoldername !== b ? (
 		msg1 = "CAUTION: The folder you have selected is different than the one you ", 
@@ -63,15 +65,14 @@ fileInput.addEventListener("change", function(a) {
 			initJSXBoard(), 
 			prefs.imgFoldername = b, 
 			putFolderOnFile(),
-			a.value = 0 < allAnnotations.imageNum ? "[" + allAnnotations.imageNum +
-			" files]  " + b : b)) : 
+			a.value = folderSelectionLabel(b))) : 
 			(initJSXBoard(), 
 			putFolderOnFile(),
-			a.value = 0 < allAnnotations.imageNum ? "[" + allAnnotations.imageNum + " files]  " + b : b) : 
+			a.value = folderSelectionLabel(b)) : 
 			(initJSXBoard(), 
 				prefs.imgFoldername = b, 
 				putFolderOnFile(),
-				a.value = 0 < allAnnotations.imageNum ? "[" + allAnnotations.imageNum + " files]  " + b : b
+				a.value = folderSelectionLabel(b)
 			);
 	fileInput.blur();
 	changeCss();

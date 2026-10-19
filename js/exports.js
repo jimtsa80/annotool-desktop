@@ -10,13 +10,79 @@ function downloadAnnotations() {
     storeAnnotationImg();
 	
 	allAnnotations.prefs = prefs
-	
+    if (clusterGroups && clusterOrder.length > 1) {
+        downloadOpenedClusters(true);
+        return;
+    }
+
     var a = JSON.stringify(allAnnotations);
     localStorage.allAnnotations = a;
     a = new Blob([a], {
         type: "application/json"
     });
     saveAs(a, allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + ".json");
+}
+
+function imagesForCluster(name) {
+    var prefix = name + "/", images = allAnnotations.images || {}, out = {}, key, copy, bare;
+    for (key in images) {
+        if (!images.hasOwnProperty(key) || key.indexOf(prefix) !== 0) continue;
+        if (!images[key] || !images[key].annotations || !images[key].annotations.length) continue;
+        bare = key.slice(prefix.length);
+        copy = JSON.parse(JSON.stringify(images[key]));
+        copy.imageName = bare;
+        out[bare] = copy;
+    }
+    return out;
+}
+
+function clustersToExport() {
+    var names = [], i, imgs;
+    for (i = 0; i < clusterOrder.length; i++) {
+        if (!clustersOpened[clusterOrder[i]]) continue;
+        imgs = imagesForCluster(clusterOrder[i]);
+        if (Object.keys(imgs).length) names.push(clusterOrder[i]);
+    }
+    return names;
+}
+
+function exportBase(cluster, stamp) {
+    var proj = String(cluster || allAnnotations.project || "project").replace(/[\\/:*?"<>|]/g, "_").replace(/ /g, "_").replace(/---|--/g, "-");
+    var who = String(allAnnotations.Annotator || "annotator");
+    return proj + "-" + who + "-" + stamp;
+}
+
+function saveClusterJson(name, stamp) {
+    var payload = JSON.parse(JSON.stringify(allAnnotations));
+    payload.project = name;
+    payload.images = imagesForCluster(name);
+    payload.prefs = JSON.parse(JSON.stringify(prefs));
+    payload.prefs.projectName = name;
+    saveAs(new Blob([JSON.stringify(payload)], { type: "application/json" }), exportBase(name, stamp) + ".json");
+}
+
+function saveClusterCsv(name, stamp) {
+    var saved = allAnnotations.images;
+    allAnnotations.images = imagesForCluster(name);
+    var output;
+    try { output = videoCsvOutput(); }
+    finally { allAnnotations.images = saved; }
+    saveAs(new Blob([output], { type: "text/csv" }), exportBase(name, stamp) + "-Video.csv");
+}
+
+function downloadOpenedClusters(withJson) {
+    storeAnnotationImg();
+    var name = activeCluster;
+    if (!name) return;
+    clustersOpened[name] = true;
+    applyClusterFileName(name);
+    if (!Object.keys(imagesForCluster(name)).length) {
+        new Noty({ type: "warning", theme: "mint", layout: "topRight", text: "αυτός ο φάκελος δεν έχει annotation", timeout: 1600 }).show();
+        return;
+    }
+    var stamp = timestamp();
+    if (withJson) saveClusterJson(name, stamp);
+    saveClusterCsv(name, stamp);
 }
 
 function commonExportData(){
@@ -77,6 +143,16 @@ function generateVideoCSV(){
 	$("#generateVideoCSV").blur();
 	if(""==$("#projectFolder").val())return!1;
 	storeAnnotationImg();
+    if (clusterGroups && clusterOrder.length > 1) {
+        downloadOpenedClusters(false);
+        return;
+    }
+	var output = videoCsvOutput();
+	window.URL = window.webkitURL || window.URL;
+	saveAs(new Blob([output], {type: 'text/csv'}), allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + "-Video.csv");
+}
+
+function videoCsvOutput() {
 	var output="Brand\tLocation\tTime the brand is at screen\tDuration\tScreen Location\tScreen Size %\tTotal Hits\tAverage Hits\tSequence Frame Number\n";
 	
 	var annorows = commonExportData();
@@ -131,10 +207,7 @@ function generateVideoCSV(){
 			+finalrows[ finalkeys[d] ].avgHits + "\t"
 			+(parseInt(finalrows[ finalkeys[d] ].frameNum)||finalrows[ finalkeys[d] ].frameNum) + "\n";
 	}
-	window.URL = window.webkitURL || window.URL;
-	var contentType = 'text/csv';
-	var csvFile = new Blob([output], {type: contentType});
-	saveAs(csvFile, allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + "-Video.csv"); 
+	return output;
 }
 
 function generatePhotoCSV() {

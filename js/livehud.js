@@ -23,7 +23,8 @@
 
 	function projectKey() {
 		var name = "";
-		if (typeof prefs !== "undefined" && prefs && prefs.projectName) name = prefs.projectName;
+		if (typeof prefs !== "undefined" && prefs && prefs.projectRoot) name = prefs.projectRoot;
+		else if (typeof prefs !== "undefined" && prefs && prefs.projectName) name = prefs.projectName;
 		else if (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.project) name = allAnnotations.project;
 		return name || "_";
 	}

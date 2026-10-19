@@ -551,35 +551,95 @@ $('button#edittpoint').click(function() {
 	}
 })
 
-function brandsAbc(){
+function listCounts() {
+	var brands = {}, locs = {};
+	function add(ann) {
+		if (!ann) return;
+		var b = $.trim(ann.brand || ""), t = $.trim(ann.tpoint || ""), g = $.trim(ann.group || "");
+		if (!b) return;
+		var id = g ? (g + "__" + b) : b;
+		brands[id] = (brands[id] || 0) + 1;
+		if (t) locs[b + "\0" + t] = (locs[b + "\0" + t] || 0) + 1;
+	}
+	var images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
+	var name, i, list, obj;
+	for (name in images) {
+		if (!images.hasOwnProperty(name) || (typeof imName !== "undefined" && name === imName)) continue;
+		list = images[name].annotations || [];
+		for (i = 0; i < list.length; i++) add(list[i]);
+	}
+	if (typeof brd !== "undefined" && brd && brd.objectsList) {
+		for (i = 0; i < brd.objectsList.length; i++) {
+			obj = brd.objectsList[i];
+			if (obj && obj.getType && obj.getType() === "polygon") add(obj.annotation);
+		}
+	}
+	return { brands: brands, locs: locs };
+}
+
+function byName(a, b) {
+	return $(a).text().localeCompare($(b).text(), undefined, { sensitivity: "base", numeric: true });
+}
+
+function applyBrandOrder() {
+	var box = document.getElementById("brands");
+	var top = box ? box.scrollTop : 0;
+	var alpha = $("#brandsabc").hasClass("clicked");
+	var counts = listCounts().brands;
 	$("#brands > ul > li.group > ul").each(function () {
 		var ul = $(this);
 		var items = ul.children("li").get();
 		items.sort(function (a, b) {
-			return $(a).text().localeCompare($(b).text(), undefined, { sensitivity: "base", numeric: true });
+			if (alpha) return byName(a, b);
+			var diff = (counts[b.id] || 0) - (counts[a.id] || 0);
+			return diff || byName(a, b);
 		});
-		$.each(items, function (i, li) {
-			ul.append(li);
-		});
+		$.each(items, function (i, li) { ul.append(li); });
 	});
+	if (box) box.scrollTop = top;
+}
+
+function applyTpointOrder() {
+	var box = document.getElementById("tpoints");
+	var top = box ? box.scrollTop : 0;
+	var ul = $("#tpoints ul");
+	if (!ul.length) return;
+	var alpha = $("#tpointsabc").hasClass("clicked");
+	var brand = $.trim($("#brands ul li.brand.selected").text() || "");
+	var counts = listCounts().locs;
+	var items = ul.children("li").get();
+	items.sort(function (a, b) {
+		if (alpha) return byName(a, b);
+		var ca = brand ? (counts[brand + "\0" + $(a).text()] || 0) : 0;
+		var cb = brand ? (counts[brand + "\0" + $(b).text()] || 0) : 0;
+		return (cb - ca) || byName(a, b);
+	});
+	$.each(items, function (i, li) { ul.append(li); });
+	if (box) box.scrollTop = top;
+}
+
+function brandsAbc() {
+	var btn = $("#brandsabc");
+	btn.toggleClass("clicked");
+	try { localStorage.setItem("annotool.brandsAlpha", btn.hasClass("clicked") ? "1" : "0"); } catch (e) {}
+	applyBrandOrder();
 	listedited++;
 }
 
-function tpointsAbc(){		//done
-	var items = $('#tpoints li').get();
-	items.sort(function(a,b){
-	  var keyA = $(a).text();
-	  var keyB = $(b).text();
-
-	  if (keyA < keyB) return -1;
-	  if (keyA > keyB) return 1;
-	  return 0;
-	});
-	var ul = $('#tpoints ul');
-	$.each(items, function(i, li){
-	  ul.append(li); /* This removes li from the old spot and moves it */
-	});
+function tpointsAbc() {
+	var btn = $("#tpointsabc");
+	btn.toggleClass("clicked");
+	try { localStorage.setItem("annotool.tpointsAlpha", btn.hasClass("clicked") ? "1" : "0"); } catch (e) {}
+	applyTpointOrder();
+	listedited++;
 }
+
+$(function () {
+	try {
+		if (localStorage.getItem("annotool.brandsAlpha") === "1") $("#brandsabc").addClass("clicked");
+		if (localStorage.getItem("annotool.tpointsAlpha") === "1") $("#tpointsabc").addClass("clicked");
+	} catch (e) {}
+});
 
 function tpointsFreq(){		//done
 	var brand = $("#brands li.selected");
@@ -740,4 +800,153 @@ $.ui.autocomplete.prototype._renderItem = function (ul, item) {
 		.append("<a>" + t + "</a>")
 		.appendTo(ul);
 };
+
+var locSwap = null;
+
+function paintLocSwapMarks() {
+	$("#tpoints li").removeClass("loc-from loc-to");
+	if (!locSwap) return;
+	if (locSwap.from) {
+		$("#tpoints li").filter(function () { return $.trim($(this).text()) === locSwap.from; }).addClass("loc-from");
+	}
+	if (locSwap.to) {
+		$("#tpoints li").filter(function () { return $.trim($(this).text()) === locSwap.to; }).addClass("loc-to");
+	}
+}
+
+function locSwapHint() {
+	var box = document.getElementById("locReplace");
+	var hint = document.getElementById("locReplaceHint");
+	var btn = document.getElementById("locReplaceOpen");
+	if (!box || !hint) return;
+	if (!locSwap) {
+		box.className = "";
+		if (btn) btn.classList.remove("on");
+		return;
+	}
+	if (btn) btn.classList.add("on");
+	box.className = locSwap.step === "confirm" ? "on confirm" : "on";
+	if (locSwap.step === "from") hint.textContent = "Διάλεξε το location που θα αλλάξει.";
+	else if (locSwap.step === "to") hint.textContent = "Κόκκινο: " + locSwap.from + ". Διάλεξε το νέο location.";
+	else hint.textContent = "Από «" + locSwap.from + "» σε «" + locSwap.to + "». Σίγουρα; γράψε ναι.";
+}
+
+function cancelLocSwap() {
+	locSwap = null;
+	paintLocSwapMarks();
+	locSwapHint();
+	var input = document.getElementById("locReplaceYes");
+	if (input) input.value = "";
+}
+
+function replaceLocationName(from, to) {
+	var n = 0, name, list, i, slot, preset, poly;
+	var images = (allAnnotations && allAnnotations.images) || {};
+	for (name in images) {
+		if (!images.hasOwnProperty(name) || name === imName) continue;
+		list = images[name].annotations || [];
+		for (i = 0; i < list.length; i++) {
+			if ($.trim(list[i].tpoint || "") !== from) continue;
+			list[i].tpoint = to;
+			n++;
+		}
+	}
+	if (typeof brd !== "undefined" && brd && brd.objectsList) {
+		for (i = 0; i < brd.objectsList.length; i++) {
+			poly = brd.objectsList[i];
+			if (!poly || !poly.getType || poly.getType() !== "polygon" || !poly.annotation) continue;
+			if ($.trim(poly.annotation.tpoint || "") !== from) continue;
+			poly.annotation.tpoint = to;
+			n++;
+		}
+	}
+	if (typeof storeAnnotationImg === "function") storeAnnotationImg();
+	var presets = (allAnnotations && allAnnotations.presets) || {};
+	for (slot in presets) {
+		if (!presets.hasOwnProperty(slot) || !presets[slot]) continue;
+		for (i = 0; i < presets[slot].length; i++) {
+			preset = presets[slot][i];
+			if (!preset || !preset.annotation || $.trim(preset.annotation.tpoint || "") !== from) continue;
+			preset.annotation.tpoint = to;
+		}
+	}
+	if (typeof renameStickyLocation === "function") renameStickyLocation(from, to);
+	if (typeof paintStickyMarks === "function") paintStickyMarks();
+	if (window.AnnoSuggest && AnnoSuggest.renameLocation) AnnoSuggest.renameLocation(from, to);
+	if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
+	if (typeof brd !== "undefined" && brd) brd.update();
+	new Noty({
+		type: n ? "success" : "warning",
+		theme: "mint",
+		layout: "topRight",
+		text: n ? ("άλλαξαν " + n) : "δεν βρέθηκε αυτό το location",
+		timeout: 1600
+	}).show();
+}
+
+function confirmLocSwap() {
+	if (!locSwap || locSwap.step !== "confirm") return;
+	var typed = $.trim($("#locReplaceYes").val()).toLowerCase();
+	if (typed !== "ναι") {
+		new Noty({ type: "warning", theme: "mint", layout: "topRight", text: "γράψε ναι για να προχωρήσει", timeout: 1400 }).show();
+		return;
+	}
+	var from = locSwap.from, to = locSwap.to;
+	cancelLocSwap();
+	replaceLocationName(from, to);
+}
+
+$("#locSticky").on("click", function () {
+	var name = $.trim($("#tpoints ul li.selected").first().text());
+	var on;
+	if (!name) {
+		new Noty({ type: "warning", theme: "mint", layout: "topRight", text: "διάλεξε πρώτα location", timeout: 1200 }).show();
+		return;
+	}
+	on = toggleStickyLocation(name);
+	paintStickyMarks();
+	new Noty({
+		type: "success",
+		theme: "mint",
+		layout: "topRight",
+		text: on ? ("το «" + name + "» έρχεται στην επόμενη") : ("το «" + name + "» δεν αντιγράφεται"),
+		timeout: 1400
+	}).show();
+});
+$("#locReplaceOpen").on("click", function () {
+	if (locSwap) cancelLocSwap();
+	else {
+		locSwap = { step: "from", from: "", to: "" };
+		locSwapHint();
+	}
+});
+$("#locReplaceCancel").on("click", cancelLocSwap);
+$("#locReplaceGo").on("click", confirmLocSwap);
+$("#locReplaceYes").on("keydown", function (e) {
+	if (e.key === "Enter" || e.keyCode === 13) confirmLocSwap();
+});
+document.addEventListener("click", function (e) {
+	if (!locSwap || locSwap.step === "confirm") return;
+	var li = e.target && e.target.closest ? e.target.closest("#tpoints ul li") : null;
+	if (!li || !document.getElementById("tpoints").contains(li)) return;
+	e.preventDefault();
+	e.stopPropagation();
+	var name = $.trim(li.textContent || "");
+	if (!name) return;
+	if (locSwap.step === "from") {
+		locSwap.from = name;
+		locSwap.step = "to";
+	} else if (name !== locSwap.from) {
+		locSwap.to = name;
+		locSwap.step = "confirm";
+		var input = document.getElementById("locReplaceYes");
+		if (input) input.value = "";
+	}
+	paintLocSwapMarks();
+	locSwapHint();
+	if (locSwap.step === "confirm") {
+		var yes = document.getElementById("locReplaceYes");
+		if (yes) yes.focus();
+	}
+}, true);
 

@@ -22,7 +22,7 @@
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
 	<link rel="stylesheet" href="css/livehud.css?v=11">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=5">
+	<link rel="stylesheet" href="css/modern.css?v=20">
 	
 
 
@@ -92,6 +92,9 @@
 			<span id="projectName" class="editable"></span>
 			<span id="AnnotatorLabel">Annotator&nbsp;:&nbsp;</span>
 			<span id="AnnotatorName" class="editable"></span>
+			<label id="carryToggle" title="φέρνει τα κουτιά της εικόνας στην επόμενη, για να τα προσαρμόσεις">
+				<input id="carryBoxes" type="checkbox"> Μεταφορά
+			</label>
 			
 			<span id="resizefname">
 				<button id="lastButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadLastImg();">Τέλος</button>
@@ -99,6 +102,7 @@
 				<button id="prevButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadPrevImg();">Prev</button>
 				<button id="firstButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadFirstImg();">Αρχή</button>
 				<input id="imageName" type="text" size="1" class="form-control input-sm shadow">
+				<select id="clusterPick" title="φάκελος"></select>
 			</span>
 		</div>
 	</div>
@@ -210,12 +214,14 @@
 					<button id="deltpoint" class="btn btn-primary btn-md red" data-toggle="tooltip" data-placement="bottom">
 						<i class="fa fa-minus-square-o"><span>delete tpoint</span></i>
 					</button>
-					<button onclick="tpointsAbc();" class="btn btn-primary btn-md" id="tpointsfreq" data-toggle="tooltip" data-placement="bottom">
+					<button onclick="tpointsAbc();" class="btn btn-primary btn-md" id="tpointsabc" data-toggle="tooltip" data-placement="bottom">
 						<i class="fa fa-sort-alpha-asc"><span>sort alphabetically</span></i>
 					</button>
 					<button onclick="tpointsFreq();" class="btn btn-primary btn-md" id="tpointsfreq" data-toggle="tooltip" data-placement="bottom">
 						<i class="fa fa-sort-numeric-asc"><span>sort by usage</span></i>
 					</button>
+					<button type="button" id="locReplaceOpen" class="btn btn-primary btn-md" title="άλλαξε ένα location στα annotations">Αλλαγή</button>
+					<button type="button" id="locSticky" class="btn btn-primary btn-md" title="έρχεται στην επόμενη εικόνα. Πάτα για να μην έρχεται">Μένει</button>
 				</div>
 				<div>
 					<input id="tpointsearch" type="text" class="form-control input-sm" title="" placeholder="tpoint search"> 
@@ -239,9 +245,38 @@
 	</div>
 </div>
 
-<div class="help">
-	<a href="helpdocs/index.html" target="_blank"><img src="img/help.png"></a>
-	<div class="tooltip">ANNOTOOL ΟΔΗΓΙΕΣ</div>
+<div id="locReplace">
+	<p id="locReplaceHint"></p>
+	<div id="locReplaceConfirm">
+		<input id="locReplaceYes" type="text" placeholder="ναι" autocomplete="off">
+		<button type="button" id="locReplaceGo">Άλλαξε</button>
+		<button type="button" id="locReplaceCancel">Άκυρο</button>
+	</div>
+</div>
+
+<div id="annoDock">
+	<div id="annoPanel" aria-hidden="true">
+		<div id="annoHead">
+			<span>Anno</span>
+			<button type="button" id="annoClose" title="κλείσιμο">×</button>
+		</div>
+		<div id="annoQuestions"></div>
+		<div id="annoLog"></div>
+		<form id="annoForm">
+			<input id="annoAsk" type="text" placeholder="ρώτα κάτι" autocomplete="off">
+			<button type="submit">Στείλε</button>
+		</form>
+	</div>
+	<button type="button" id="annoOpen" title="Anno">
+		<svg viewBox="0 0 64 64" aria-hidden="true">
+			<rect width="64" height="64" rx="20" fill="#0c6b5c"/>
+			<circle cx="32" cy="30" r="18" fill="#f7fbfc"/>
+			<circle cx="25" cy="27" r="2.2" fill="#16303c"/>
+			<circle cx="39" cy="27" r="2.2" fill="#16303c"/>
+			<path d="M24 35c2.6 4 13.4 4 16 0" fill="none" stroke="#16303c" stroke-width="2.2" stroke-linecap="round"/>
+			<path d="M42 42 l7 8" fill="none" stroke="#f7fbfc" stroke-width="4" stroke-linecap="round"/>
+		</svg>
+	</button>
 </div>	
 	
 <!-- 						--MODALS--		   				-->
@@ -335,12 +370,12 @@
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap.js"></script>
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap-pause.js"></script>
     <script type="text/javascript" src="js/libs/mousetrap/mousetrap-bind-dictionary.min.js"></script>	
-    <script type="text/javascript" src="js/webannotool.js?v=13"></script>
-	<script type="text/javascript" src="js/keyboard.js?v=2"></script>
-	<script type="text/javascript" src="js/imports.js?v=8"></script>
-	<script type="text/javascript" src="js/exports.js?v=3"></script>
+    <script type="text/javascript" src="js/webannotool.js?v=26"></script>
+	<script type="text/javascript" src="js/keyboard.js?v=7"></script>
+	<script type="text/javascript" src="js/imports.js?v=10"></script>
+	<script type="text/javascript" src="js/exports.js?v=5"></script>
 	<script type="text/javascript" src="js/filters.js?v=4"></script>
-	<script type="text/javascript" src="js/tools.js?v=4"></script>
+	<script type="text/javascript" src="js/tools.js?v=8"></script>
 	<script type="text/javascript" src="js/mydatatables.js"></script>
 	<script type="text/javascript" src="js/colors.js"></script>
 	<div id="comboPanel" aria-hidden="true">
@@ -359,7 +394,9 @@
 	</div>
 
 	<script type="text/javascript" src="js/compare.js"></script>
-	<script type="text/javascript" src="js/livehud.js?v=10"></script>
+	<script type="text/javascript" src="js/livehud.js?v=11"></script>
+	<script type="text/javascript" src="js/suggest.js?v=14"></script>
+	<script type="text/javascript" src="js/anno.js?v=1"></script>
 	<script>
 	(function () {
 		var root = document.documentElement;

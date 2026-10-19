@@ -14,6 +14,11 @@ brd,
 imList = [],
 imAll = {},
 imIndices = [],
+clusterGroups = null,
+clusterOrder = [],
+clustersOpened = {},
+clusterCursor = {},
+activeCluster = "",
 imLength,
 highlighted = [],
 prefs = {
@@ -53,6 +58,8 @@ imReadFlag = !1,
 nullAnnoFlag = 0,
 hasNull = 0,
 lockedpreset = "",
+presetGrab = null,
+presetPointer = null,
 prevopen = false,
 fileInput = document.getElementById("projectFolder"),
 newProjButton = document.getElementById("newProjButton"),
@@ -114,11 +121,12 @@ $( "#hits" ).change(function(a) {
 			new Noty({ type: 'error', theme: 'mint', layout: 'topRight',  text: 'έχεις επιλέξει περισσότερα από ένα τετράγωνα',  timeout: 1000,  closeWith: ['click', 'button'],}).show();
 		}
         for (var e = 0, g = a.length; e < g; e++){ 
-		a[e].annotation.group = b.split("__")[0], 
-		a[e].annotation.brand = b.split("__")[1], 
-		a[e].annotation.tpoint = c, 
-		a[e].annotation.hits = parseInt(d, 10), 
-		nullAnnoFlag--;
+		var wasEmpty = !a[e].annotation.brand || !a[e].annotation.tpoint;
+		a[e].annotation.group = b.split("__")[0];
+		a[e].annotation.brand = b.split("__")[1];
+		a[e].annotation.tpoint = c;
+		a[e].annotation.hits = parseInt(d, 10);
+		if (wasEmpty) nullAnnoFlag--;
         dehighlightAllObj()
 		}
     }else{
@@ -181,7 +189,126 @@ function timestamp() {
 	var mytime = hours + minutes;
 	
 	return mydate + "-" + mytime;
-}	
+}
+
+function bareImageName(key) {
+	key = String(key || "");
+	var cut = key.lastIndexOf("/");
+	return cut < 0 ? key : key.slice(cut + 1);
+}
+
+function countGrouped(grouped) {
+	var n = 0, name;
+	for (name in grouped) if (grouped.hasOwnProperty(name)) n += grouped[name].keys.length;
+	return n;
+}
+
+function resetClusters() {
+	clusterGroups = null;
+	clusterOrder = [];
+	clustersOpened = {};
+	clusterCursor = {};
+	activeCluster = "";
+}
+
+function hideClusterBar() {
+	resetClusters();
+	var sel = document.getElementById("clusterPick");
+	if (!sel) return;
+	sel.className = "";
+	sel.innerHTML = "";
+}
+
+function clusterHasWork(name) {
+	var prefix = name + "/", images = (allAnnotations && allAnnotations.images) || {}, key;
+	for (key in images) {
+		if (!images.hasOwnProperty(key) || key.indexOf(prefix) !== 0) continue;
+		if (images[key] && images[key].annotations && images[key].annotations.length) return true;
+	}
+	return false;
+}
+
+function paintClusterBar() {
+	var sel = document.getElementById("clusterPick");
+	if (!sel) return;
+	sel.innerHTML = "";
+	if (!clusterOrder || clusterOrder.length < 2) {
+		sel.className = "";
+		return;
+	}
+	sel.className = "on";
+	var i, name, opt, n;
+	for (i = 0; i < clusterOrder.length; i++) {
+		name = clusterOrder[i];
+		n = clusterGroups[name] ? clusterGroups[name].keys.length : 0;
+		opt = document.createElement("option");
+		opt.value = name;
+		opt.textContent = (clusterHasWork(name) ? "✓ " : "") + name + "  (" + n + ")";
+		sel.appendChild(opt);
+	}
+	sel.value = activeCluster;
+}
+
+function activateCluster(name) {
+	if (!clusterGroups || !clusterGroups[name] || name === activeCluster || imReadFlag) return false;
+	if (0 < nullAnnoFlag) {
+		if (typeof highlightNull === "function") highlightNull();
+		new Noty({ type: "error", theme: "mint", layout: "top", text: "NULL : κάποιο τετράγωνο δεν έχει πληροφορία", timeout: 1000, closeWith: ["click", "button"] }).show();
+		return false;
+	}
+	if (activeCluster) clusterCursor[activeCluster] = imIndex;
+	storeAnnotationImg();
+	if (typeof endPresetGrab === "function") endPresetGrab();
+	if (window.AnnoSuggest && AnnoSuggest.clear) AnnoSuggest.clear();
+	activeCluster = name;
+	clustersOpened[name] = true;
+	applyClusterFileName(name);
+	imAll = clusterGroups[name].files;
+	imIndices = clusterGroups[name].keys.slice();
+	var idx = clusterCursor[name];
+	if (!(idx >= 0) || idx >= imIndices.length) idx = 0;
+	allAnnotations.imageNum = countGrouped(clusterFileTotals());
+	paintClusterBar();
+	imIndex = idx > 0 ? idx - 1 : -1;
+	imReadFlag = true;
+	loadImg(idx);
+	return true;
+}
+
+function clusterFileTotals() {
+	var grouped = {}, i, name;
+	if (!clusterGroups) return grouped;
+	for (i = 0; i < clusterOrder.length; i++) {
+		name = clusterOrder[i];
+		grouped[name] = { keys: clusterGroups[name].keys };
+	}
+	return grouped;
+}
+
+function applyClusterFileName(name) {
+	if (!name) return;
+	if (prefs && prefs.projectRoot === undefined) prefs.projectRoot = prefs.projectName || "";
+	prefs.projectName = name;
+	allAnnotations.project = name;
+	var el = document.getElementById("projectName");
+	if (!el) return;
+	if (el.tagName === "INPUT") el.value = name;
+	else el.textContent = name;
+}
+
+function folderSelectionLabel(path) {
+	var n = 0, i;
+	if (clusterGroups && clusterOrder.length > 1) {
+		for (i = 0; i < clusterOrder.length; i++) n += clusterGroups[clusterOrder[i]].keys.length;
+	} else n = allAnnotations.imageNum || 0;
+	var extra = clusterOrder && clusterOrder.length > 1 ? " · " + clusterOrder.length + " clusters" : "";
+	return n ? "[" + n + " files" + extra + "]  " + path : path;
+}
+
+document.addEventListener("change", function (e) {
+	if (!e.target || e.target.id !== "clusterPick") return;
+	if (!activateCluster(e.target.value)) e.target.value = activeCluster;
+});
 
 function checkLoadLocalStorage() {
     "undefined" === typeof localStorage && alert("CAUTION: Local storage is not supported by your browser. For this reason autosave will not work. You have to manually save your annotations.");
@@ -260,6 +387,7 @@ function clearProjectFolderSelection() {
         console.log("Problem while initializing JSX board. Error: " + a.message)
     }
     $("#imageName").val("");
+    hideClusterBar();
 }
 
 function disableGroups(){
@@ -275,12 +403,14 @@ function disableGroups(){
 function brandsInit() {
 	$("#brands ul li ul li").addClass("brand");
 	$('#brands ul').sortable({disabled: true});	// MANDATORY FOR SORTABLE TO WORK : adds class "ui-sortable-handle"
+	if (typeof applyBrandOrder === "function") applyBrandOrder();
 	$("#brands ul li ul li").on("click", function(){
 			if ( !$(this).hasClass('selected') ){
 				$("#brands li").removeClass('selected');
 				$(this).addClass('selected');
 				
 				fillTouchpoints( $("#brands li.selected").attr('id') );
+				if (typeof applyTpointOrder === "function") applyTpointOrder();
 				tpointsInit();
 				$("#hits option:selected").prop("selected", false);
 			}
@@ -309,7 +439,127 @@ function tpointsInit() {
 			$("#tpoints li").removeClass('selected')
 			$(this).addClass('selected')
 		}
+		if (typeof paintStickyMarks === "function") paintStickyMarks();
 	});
+	if (typeof paintStickyMarks === "function") paintStickyMarks();
+}
+
+function normLocName(name) {
+	return $.trim(name || "").toLowerCase().replace(/\s+/g, " ");
+}
+
+function stickyStoreKey() {
+	var root = "default";
+	if (typeof prefs !== "undefined" && prefs) root = prefs.projectRoot || prefs.projectName || "default";
+	return "annotool.carry." + root;
+}
+
+function stickyOverrides() {
+	try {
+		var raw = JSON.parse(localStorage.getItem(stickyStoreKey()) || "{}");
+		return raw && typeof raw === "object" ? raw : {};
+	} catch (e) {
+		return {};
+	}
+}
+
+function stickyDefault(name) {
+	var n = normLocName(name), i;
+	var keys = ["grass sign", "pitch painting", "perimeter board", "sightscreen", "boundary rope"];
+	if (!n) return false;
+	for (i = 0; i < keys.length; i++) if (n.indexOf(keys[i]) !== -1) return true;
+	return false;
+}
+
+function isStickyLocation(name) {
+	var n = normLocName(name);
+	var over;
+	if (!n) return true;
+	over = stickyOverrides();
+	if (Object.prototype.hasOwnProperty.call(over, n)) return !!over[n];
+	return true;
+}
+
+function toggleStickyLocation(name) {
+	var n = normLocName(name);
+	var over, on;
+	if (!n) return false;
+	over = stickyOverrides();
+	on = !isStickyLocation(name);
+	over[n] = on;
+	try { localStorage.setItem(stickyStoreKey(), JSON.stringify(over)); } catch (e) {}
+	return on;
+}
+
+function renameStickyLocation(from, to) {
+	var a = normLocName(from), b = normLocName(to), over;
+	if (!a || !b || a === b) return;
+	over = stickyOverrides();
+	if (!Object.prototype.hasOwnProperty.call(over, a)) return;
+	over[b] = over[a];
+	delete over[a];
+	try { localStorage.setItem(stickyStoreKey(), JSON.stringify(over)); } catch (e) {}
+}
+
+function paintStickyMarks() {
+	var btn = document.getElementById("locSticky");
+	var selected = $("#tpoints ul li.selected").first().text();
+	$("#tpoints li").each(function () {
+		$(this).toggleClass("loc-sticky", isStickyLocation($(this).text()));
+	});
+	if (btn) btn.classList.toggle("on", !!(selected && isStickyLocation(selected)));
+}
+
+function imageHasBoxes() {
+	var i, poly;
+	if (!brd || !brd.objectsList) return false;
+	for (i = 0; i < brd.objectsList.length; i++) {
+		poly = brd.objectsList[i];
+		if (!poly || !poly.getType || poly.getType() !== "polygon") continue;
+		if (poly.getAttribute && poly.getAttribute("visible") === false) continue;
+		return true;
+	}
+	return false;
+}
+
+function carryStickyBoxes(fromName) {
+	var src, sx, sy, i, ann, x1, y1, x2, y2, poly, n, now;
+	if (!fromName || fromName === imName || imageHasBoxes()) return;
+	src = allAnnotations.images && allAnnotations.images[fromName];
+	if (!src || !src.annotations || !src.annotations.length) return;
+	sx = 1;
+	sy = 1;
+	if (src.width > 0 && src.height > 0 && imWidth > 0 && imHeight > 0) {
+		sx = imWidth / src.width;
+		sy = imHeight / src.height;
+	}
+	n = 0;
+	now = new Date().toISOString();
+	var made = [];
+	brd.suspendUpdate();
+	for (i = 0; i < src.annotations.length; i++) {
+		ann = src.annotations[i];
+		if (!ann || !ann.startPoint || !ann.diagPoint || !isStickyLocation(ann.tpoint)) continue;
+		x1 = ann.startPoint[0] * sx;
+		y1 = ann.startPoint[1] * sy;
+		x2 = ann.diagPoint[0] * sx;
+		y2 = ann.diagPoint[1] * sy;
+		if (Math.max(x1, x2) < 1 || Math.max(y1, y2) < 1 || Math.min(x1, x2) > imWidth || Math.min(y1, y2) > imHeight) continue;
+		poly = createPolygon([x1, y1], [x2, y2]);
+		poly.annotation = {
+			group: ann.group || "",
+			brand: ann.brand || "",
+			tpoint: tpointText(ann.tpoint),
+			hits: ann.hits,
+			timestamp: now
+		};
+		made.push(poly);
+		n++;
+	}
+	brd.unsuspendUpdate();
+	if (!n) return;
+	beginPresetGrab(made, true);
+	if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
 }
 
 function fillTouchpoints(conn) {
@@ -336,7 +586,13 @@ function fillTouchpoints(conn) {
     } else {
 		$('#tpoints li').length = 0
 	}
-	$("#tpoints li").on("click", function(){ document.getElementById("hits").selectedIndex = -1; })
+	$("#tpoints li").on("click", function(){
+		document.getElementById("hits").selectedIndex = -1;
+		if (typeof paintStickyMarks === "function") paintStickyMarks();
+	})
+	if (typeof applyTpointOrder === "function") applyTpointOrder();
+	if (typeof paintLocSwapMarks === "function") paintLocSwapMarks();
+	if (typeof paintStickyMarks === "function") paintStickyMarks();
 }
 
 
@@ -357,22 +613,69 @@ function initJSXBoard() {
         if (brd && brd.renderer) try {
             JXG.JSXGraph.freeBoard(brd), 
 			document.getElementById("box").setAttribute("style", "width:900px;height:520px;"), 
-			imIndices = [], 
-			imAll = {}, 
+imIndices = [],
+imAll = {},
+clusterGroups = null,
+clusterOrder = [],
+clustersOpened = {},
+clusterCursor = {},
+activeCluster = "",
 			im = void 0
         } catch (a) {
             console.log("Problem while initializing JSX board. Error: " + a.message)
         }
         imList = document.getElementById("projectFolder").files;
+        imAll = {};
+        imIndices = [];
+        resetClusters();
+        var grouped = {}, groupNames = [], file, rel, parts, clusterName, baseName, gi, ki;
         for (var b = 0, c = imList.length; b < c; b++) {
-            var d = imList[b];
-            if (d.type.match("image.*")) {
-                var e = d.name.split(".")[0];
-                imAll[e] = d;
-                imIndices.push(e)
+            file = imList[b];
+            if (!file.type || !file.type.match("image.*")) continue;
+            rel = (file.webkitRelativePath || file.name).replace(/\\/g, "/");
+            parts = rel.split("/");
+            clusterName = parts.length > 2 ? parts.slice(1, -1).join("/") : "";
+            baseName = file.name.split(".")[0];
+            if (!grouped[clusterName]) {
+                grouped[clusterName] = { files: {}, keys: [] };
+                groupNames.push(clusterName);
             }
+            if (!grouped[clusterName].files[baseName]) grouped[clusterName].keys.push(baseName);
+            grouped[clusterName].files[baseName] = file;
         }
-        allAnnotations.imageNum = imIndices.length;
+        groupNames.sort(alphanumCase);
+        if (groupNames.length > 1) {
+            clusterGroups = {};
+            clusterOrder = [];
+            for (gi = 0; gi < groupNames.length; gi++) {
+                var label = groupNames[gi] || "ρίζα";
+                var src = grouped[groupNames[gi]];
+                var entry = { files: {}, keys: [] };
+                src.keys.sort(alphanumCase);
+                for (ki = 0; ki < src.keys.length; ki++) {
+                    var fullKey = label + "/" + src.keys[ki];
+                    entry.files[fullKey] = src.files[src.keys[ki]];
+                    entry.keys.push(fullKey);
+                }
+                clusterGroups[label] = entry;
+                clusterOrder.push(label);
+            }
+            clusterOrder.sort(alphanumCase);
+            activeCluster = clusterOrder[0];
+            clustersOpened[activeCluster] = true;
+            imAll = clusterGroups[activeCluster].files;
+            imIndices = clusterGroups[activeCluster].keys.slice();
+            paintClusterBar();
+        } else if (groupNames.length === 1) {
+            var only = grouped[groupNames[0]];
+            for (baseName in only.files) {
+                if (!only.files.hasOwnProperty(baseName)) continue;
+                imAll[baseName] = only.files[baseName];
+                imIndices.push(baseName);
+            }
+            hideClusterBar();
+        }
+        allAnnotations.imageNum = imList.length ? countGrouped(grouped) : imIndices.length;
         imIndices.sort(alphanumCase);
         imName = imIndices[0];
         prev_imName = imIndices[0];
@@ -664,7 +967,8 @@ function initJSXBoard() {
                         })
                     });
                     brd.unsuspendUpdate();
-                    brd.updateInfobox(x)
+                    brd.updateInfobox(x);
+                    if (window.AnnoSuggest) AnnoSuggest.offer(t);
                 }
             })
         }
@@ -685,20 +989,57 @@ function gotoImg_noanno(e) {
     }
 }
 
-function fitBoard(naturalW, naturalH) {
-    var maxWidth = colsFolded ? 1290 : 900;
-    var maxHeight = colsFolded ? 760 : 640;
-    var w = naturalW, h = naturalH;
-    if (!(w > 0) || !(h > 0)) return { w: maxWidth, h: colsFolded ? 720 : 506 };
-    var fit = Math.min(maxWidth / w, maxHeight / h, 1);
-    var minW = colsFolded ? 1100 : 860;
-    if (w * fit < minW) fit = Math.min(minW / w, maxWidth / w, maxHeight / h);
-    w = Math.round(w * fit);
-    h = Math.round(h * fit);
-    if (w > maxWidth) {
-        h = Math.round(h * maxWidth / w);
-        w = maxWidth;
+function documentTop(node) {
+    var top = 0;
+    while (node && node.offsetParent) {
+        top += node.offsetTop || 0;
+        node = node.offsetParent;
     }
+    return top;
+}
+
+function boardLimits() {
+    var cols = colsFolded ? 80 : 480;
+    var box = document.getElementById("box");
+    var top = box ? documentTop(box) : 168;
+    if (!(top > 0)) top = 168;
+    var maxWidth = window.innerWidth - cols - 52;
+    var maxHeight = window.innerHeight - top - 16;
+    var lists = ["brands", "tpoints", "hits"];
+    var i, extra = 0, listTop;
+    for (i = 0; i < lists.length; i++) {
+        var list = document.getElementById(lists[i]);
+        if (!list) continue;
+        listTop = documentTop(list) - top;
+        if (listTop > extra) extra = listTop;
+    }
+    maxHeight -= extra;
+    if (maxWidth < 1) maxWidth = 1;
+    if (maxHeight < 1) maxHeight = 1;
+    return { maxWidth: maxWidth, maxHeight: maxHeight };
+}
+
+function refitLoadedBoard() {
+    if (!brd || !imNaturalW || imReadFlag || typeof im === "undefined" || !im || !im.url) return;
+    try { window.scrollTo(0, 0); } catch (e) {}
+    var url = im.url;
+    storeAnnotationImg();
+    removeAllObj();
+    var size = fitBoard(imNaturalW, imNaturalH);
+    placeBoardImage(url, size.w, size.h);
+    loadAnnotationImg();
+    if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
+}
+
+function fitBoard(naturalW, naturalH) {
+    var limits = boardLimits();
+    var maxWidth = limits.maxWidth;
+    var maxHeight = limits.maxHeight;
+    var w = naturalW, h = naturalH;
+    if (!(w > 0) || !(h > 0)) return { w: Math.min(860, maxWidth), h: Math.min(480, maxHeight) };
+    var fit = Math.min(maxWidth / w, maxHeight / h);
+    w = Math.max(1, Math.round(w * fit));
+    h = Math.max(1, Math.round(h * fit));
     return { w: w, h: h };
 }
 
@@ -718,6 +1059,12 @@ function placeBoardImage(url, w, h) {
     im.isDraggable = !1;
     document.getElementById("box").setAttribute("style", "width:" + w + "px;height:" + h + "px;");
     brd.resizeContainer(w, h);
+    var brands = document.getElementById("brands");
+    var points = document.getElementById("tpoints");
+    var hits = document.getElementById("hits");
+    if (brands) brands.style.height = h + "px";
+    if (points) points.style.height = h + "px";
+    if (hits) hits.style.height = Math.min(h, Math.max(120, h - 80)) + "px";
     brd.setBoundingBox([1, 1, w, h], !1);
     brd.update();
 }
@@ -737,18 +1084,12 @@ function setColsFolded(on) {
     colsFolded = !!on;
     try { localStorage.setItem("annotool.colsFolded", colsFolded ? "1" : "0"); } catch (e) {}
     syncColsFoldClass();
-    if (!brd || typeof im === "undefined" || !im || !imNaturalW) return;
-    var url = im.url;
-    storeAnnotationImg();
-    removeAllObj();
-    var size = fitBoard(imNaturalW, imNaturalH);
-    placeBoardImage(url, size.w, size.h);
-    loadAnnotationImg();
-    if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
+    refitLoadedBoard();
 }
 
 function loadImg(a) {
-    if (0 < nullAnnoFlag) { 
+    if (0 < nullAnnoFlag) {
+        carryStickyFrom = "";
         highlightNull();
         return new Noty({ 
             type: 'error', 
@@ -800,13 +1141,14 @@ function loadImg(a) {
 
         try {
             return fileReader.readAsDataURL(imAll[imName]), 
-                   document.getElementById("imageName").value = imName, 
+                   document.getElementById("imageName").value = bareImageName(imName), 
                    !1;
         } catch (err) {
             imIndex = prev_imIndex;
             imName = imIndices[imIndex];
-            document.getElementById("imageName").value = imName;
+            document.getElementById("imageName").value = bareImageName(imName);
             alert("Could not load requested image.");
+            carryStickyFrom = "";
             return !0;
         }
     }
@@ -815,6 +1157,7 @@ function loadImg(a) {
 
 
 function prepareChangeImg() {
+endPresetGrab();
 // if ( 2 < brd.objectsList.length ){ checkDoubleByPos() }
 if ( 2 < brd.objectsList.length ){ checkDoubleByAnno() }
     brd.off("up");
@@ -830,7 +1173,10 @@ if ( 2 < brd.objectsList.length ){ checkDoubleByAnno() }
 function afterChangeImg() {
     allAnnotations.currentImage = imName;
 	resetGUIAnnoInfo();
-	loadAnnotationImg()
+	loadAnnotationImg();
+	var fromSticky = carryStickyFrom;
+	carryStickyFrom = "";
+	if (fromSticky) carryStickyBoxes(fromSticky);
 	if ( prevopen==true ) {	preview(); }
 }
 
@@ -1132,10 +1478,29 @@ function goToFilteredStart() {
     loadImg(idx)
 }
 
+var carryStickyFrom = "";
+
+function carryBoxesOn() {
+	var box = document.getElementById("carryBoxes");
+	return !!(box && box.checked);
+}
+
+function syncCarryToggle() {
+	var box = document.getElementById("carryBoxes");
+	if (!box) return;
+	var stored = null;
+	try { stored = localStorage.getItem("annotool.carryOn"); } catch (e) {}
+	box.checked = stored !== "0";
+	box.addEventListener("change", function () {
+		try { localStorage.setItem("annotool.carryOn", box.checked ? "1" : "0"); } catch (e) {}
+	});
+}
+
 function loadNextImg() {
     if (!(brd && brd.renderer) || imReadFlag) return !1;
     var a = seekCombo(imIndex, 1);
     if (a < 0) return navCombo() ? noComboNoty() : !1;
+    carryStickyFrom = carryBoxesOn() ? (imName || "") : "";
     imReadFlag = !0;
     loadImg(a);
     if (nullAnnoFlag < 0) alert("nullAnnoFlag < 0")
@@ -1554,10 +1919,13 @@ function storeD(a) {
 }
 
 function pastePreset(a) {
+	endPresetGrab();
 	dehighlightAllObj();
     a = allAnnotations.presets[a];
-    brd.suspendUpdate();	
-	
+    if (!a || !a.length) return;
+    brd.suspendUpdate();
+    var made = [];
+
     for (var b = 0, c = a.length; b < c; b++) {
         var d = a[b].annotation,
         e = createPolygon(a[b].start, a[b].diag);
@@ -1568,16 +1936,21 @@ function pastePreset(a) {
         e.annotation.hits = d.hits;
         e.annotation.timestamp = new Date().toISOString();
 
-		highlighted.push(brd, e)
+		highlighted.push(brd, e);
+        made.push(e);
     }
-    brd.unsuspendUpdate()
+    brd.unsuspendUpdate();
+    beginPresetGrab(made);
 }
 
 function pasteLastPreset(a) {
+	endPresetGrab();
 	dehighlightAllObj();
     a = allAnnotations.presets[a];
-    brd.suspendUpdate();	
-	
+    if (!a || !a.length) return;
+    brd.suspendUpdate();
+    var made = [];
+
     for (var b = 0, c = a.length; b < c; b++) {
         var d = a[b].annotation,
         e = createPolygon(a[b].start, a[b].diag);
@@ -1587,9 +1960,164 @@ function pasteLastPreset(a) {
         e.annotation.tpoint = tpointText(d.tpoint);
         e.annotation.hits = d.hits;
         e.annotation.timestamp = new Date().toISOString();
+        made.push(e);
     }
-    brd.unsuspendUpdate()
+    brd.unsuspendUpdate();
+    beginPresetGrab(made);
 }
+
+function pointerOverBox(e) {
+    var board = document.getElementById("box");
+    if (!board || !e) return false;
+    var r = board.getBoundingClientRect();
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+}
+
+function grabBBox() {
+    if (!presetGrab) return null;
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, i, a, b;
+    for (i = 0; i < presetGrab.pairs.length; i++) {
+        a = presetGrab.pairs[i][0];
+        b = presetGrab.pairs[i][1];
+        if (!a || !b) continue;
+        minX = Math.min(minX, a.X(), b.X());
+        maxX = Math.max(maxX, a.X(), b.X());
+        minY = Math.min(minY, a.Y(), b.Y());
+        maxY = Math.max(maxY, a.Y(), b.Y());
+    }
+    if (minX === Infinity) return null;
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY, w: maxX - minX, h: maxY - minY };
+}
+
+function shiftPresetGrab(dx, dy) {
+    var box = grabBBox();
+    if (!box) return;
+    if (imWidth > 0 && box.w <= imWidth) {
+        if (box.minX + dx < 1) dx = 1 - box.minX;
+        if (box.maxX + dx > imWidth) dx = imWidth - box.maxX;
+    }
+    if (imHeight > 0 && box.h <= imHeight) {
+        if (box.minY + dy < 1) dy = 1 - box.minY;
+        if (box.maxY + dy > imHeight) dy = imHeight - box.maxY;
+    }
+    brd.suspendUpdate();
+    var i, a, b;
+    for (i = 0; i < presetGrab.pairs.length; i++) {
+        a = presetGrab.pairs[i][0];
+        b = presetGrab.pairs[i][1];
+        if (!a || !b) continue;
+        a.moveTo([a.X() + dx, a.Y() + dy]);
+        b.moveTo([b.X() + dx, b.Y() + dy]);
+    }
+    brd.unsuspendUpdate();
+}
+
+function scalePresetGrab(factor) {
+    if (!presetGrab) return;
+    var box = grabBBox();
+    if (!box || box.w < 1 || box.h < 1) return;
+    if (factor < 1 && (box.w * factor < 12 || box.h * factor < 12)) return;
+    var cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2, i, a, b;
+    brd.suspendUpdate();
+    for (i = 0; i < presetGrab.pairs.length; i++) {
+        a = presetGrab.pairs[i][0];
+        b = presetGrab.pairs[i][1];
+        if (!a || !b) continue;
+        a.moveTo([cx + (a.X() - cx) * factor, cy + (a.Y() - cy) * factor]);
+        b.moveTo([cx + (b.X() - cx) * factor, cy + (b.Y() - cy) * factor]);
+    }
+    brd.unsuspendUpdate();
+}
+
+function beginPresetGrab(polys, quiet) {
+    endPresetGrab();
+    if (!polys || !polys.length || !brd) return;
+    var pairs = [], i, poly, parents;
+    for (i = 0; i < polys.length; i++) {
+        poly = polys[i];
+        if (!poly || !poly.getParents) continue;
+        parents = poly.getParents();
+        if (!parents || parents.length < 3 || !brd.objects[parents[0]] || !brd.objects[parents[2]]) continue;
+        pairs.push([brd.objects[parents[0]], brd.objects[parents[2]], poly]);
+        poly.setAttribute({ fillColor: "rgba(240,180,41,0.28)" });
+    }
+    if (!pairs.length) return;
+    presetGrab = { pairs: pairs, last: null };
+    if (presetPointer && pointerOverBox(presetPointer)) {
+        try { presetGrab.last = brd.getUsrCoordsOfMouse(presetPointer); } catch (err) {}
+    }
+    var board = document.getElementById("box");
+    if (board) board.classList.add("preset-grab");
+    if (quiet) return;
+    new Noty({
+        type: "info",
+        theme: "mint",
+        layout: "bottomRight",
+        text: "Σύρε για τη θέση, ροδέλα για το μέγεθος, κλικ για να μείνει",
+        progressBar: false,
+        timeout: 1600
+    }).show();
+}
+
+function endPresetGrab() {
+    if (!presetGrab) return;
+    var i, poly;
+    for (i = 0; i < presetGrab.pairs.length; i++) {
+        poly = presetGrab.pairs[i][2];
+        if (poly && poly.setAttribute) poly.setAttribute({ fillColor: "none" });
+    }
+    presetGrab = null;
+    var board = document.getElementById("box");
+    if (board) board.classList.remove("preset-grab");
+}
+
+function movePresetGrab(e) {
+    if (!presetGrab || !brd) return;
+    if (!pointerOverBox(e)) {
+        presetGrab.last = null;
+        return;
+    }
+    var usr;
+    try { usr = brd.getUsrCoordsOfMouse(e); } catch (err) { return; }
+    if (!usr) return;
+    if (!presetGrab.last) {
+        presetGrab.last = usr;
+        return;
+    }
+    var dx = usr[0] - presetGrab.last[0], dy = usr[1] - presetGrab.last[1];
+    presetGrab.last = usr;
+    if (Math.abs(dx) + Math.abs(dy) < 0.01) return;
+    shiftPresetGrab(dx, dy);
+}
+
+document.addEventListener("mousemove", function (e) {
+    presetPointer = e;
+    movePresetGrab(e);
+}, true);
+document.addEventListener("mousedown", function (e) {
+    if (!presetGrab) return;
+    var board = document.getElementById("box");
+    var inside = board && (e.target === board || board.contains(e.target));
+    endPresetGrab();
+    if (inside) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+function onPresetWheel(e) {
+    if (!presetGrab || !pointerOverBox(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var dy = e.deltaY;
+    if (dy === undefined || dy === 0) dy = -(e.wheelDelta || 0) / 3;
+    if (!dy) return;
+    var factor = Math.exp(-dy / 500);
+    if (factor < 0.82) factor = 0.82;
+    if (factor > 1.22) factor = 1.22;
+    scalePresetGrab(factor);
+}
+document.addEventListener("wheel", onPresetWheel, { capture: true, passive: false });
+document.addEventListener("mousewheel", onPresetWheel, { capture: true, passive: false });
 
 function makePolyVisible(a) {
     var b = {},
@@ -1655,10 +2183,10 @@ function isKeyPressed(event) {
 }
 
 $('#toptoggle i').click(function(){
-	$('#toppanel').slideToggle( 'fast' , 'swing' )
-	$('#toptoggle i').toggleClass('fa-arrow-circle-o-down')
-	$('#toptoggle i').toggleClass('fa-arrow-circle-o-up')
-	
+	var open = $('#toppanel').is(':visible');
+	$('#toppanel').stop(true, true)[open ? 'hide' : 'show']();
+	$('#toptoggle i').toggleClass('fa-arrow-circle-o-down fa-arrow-circle-o-up');
+	refitLoadedBoard();
 })
 var switchToInput = function () {
 	var thisId = $(this).attr('id')
@@ -1696,8 +2224,14 @@ var switchToSpan = function () {
 };
 $("span.editable").on("click", switchToInput);
 
+syncCarryToggle();
 try { colsFolded = localStorage.getItem("annotool.colsFolded") === "1"; } catch (e) {}
 syncColsFoldClass();
 $("#btn_foldcols").on("click", function () { setColsFolded(!colsFolded); });
+var boardFitTimer = 0;
+window.addEventListener("resize", function () {
+	clearTimeout(boardFitTimer);
+	boardFitTimer = setTimeout(refitLoadedBoard, 200);
+});
 
 
