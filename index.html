@@ -22,7 +22,7 @@
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
 	<link rel="stylesheet" href="css/livehud.css?v=11">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=20">
+	<link rel="stylesheet" href="css/modern.css?v=21">
 	
 
 
@@ -267,7 +267,9 @@
 			<button type="submit">Στείλε</button>
 		</form>
 	</div>
-	<button type="button" id="annoOpen" title="Anno">
+	<div id="annoLauncher">
+		<button type="button" id="annoDismiss" title="κρύψε τον Anno">×</button>
+		<button type="button" id="annoOpen" title="Anno">
 		<svg viewBox="0 0 64 64" aria-hidden="true">
 			<rect width="64" height="64" rx="20" fill="#0c6b5c"/>
 			<circle cx="32" cy="30" r="18" fill="#f7fbfc"/>
@@ -276,7 +278,8 @@
 			<path d="M24 35c2.6 4 13.4 4 16 0" fill="none" stroke="#16303c" stroke-width="2.2" stroke-linecap="round"/>
 			<path d="M42 42 l7 8" fill="none" stroke="#f7fbfc" stroke-width="4" stroke-linecap="round"/>
 		</svg>
-	</button>
+		</button>
+	</div>
 </div>	
 	
 <!-- 						--MODALS--		   				-->
@@ -396,7 +399,7 @@
 	<script type="text/javascript" src="js/compare.js"></script>
 	<script type="text/javascript" src="js/livehud.js?v=11"></script>
 	<script type="text/javascript" src="js/suggest.js?v=14"></script>
-	<script type="text/javascript" src="js/anno.js?v=1"></script>
+	<script type="text/javascript" src="js/anno.js?v=2"></script>
 	<script>
 	(function () {
 		var root = document.documentElement;

@@ -174,10 +174,30 @@
 			say("me", topic.q);
 			say("anno", topic.a);
 		});
+		var dock = document.getElementById("annoDock");
+		function setAway(on) {
+			if (!dock) return;
+			dock.classList.toggle("away", on);
+			if (on) {
+				panel.classList.remove("on");
+				panel.setAttribute("aria-hidden", "true");
+			}
+			open.title = on ? "φέρε τον Anno" : "Anno";
+			try { localStorage.setItem("annotool.annoAway", on ? "1" : "0"); } catch (err) {}
+		}
+		try { if (localStorage.getItem("annotool.annoAway") === "1") setAway(true); } catch (err) {}
 		open.addEventListener("click", function () {
+			if (dock && dock.classList.contains("away")) {
+				setAway(false);
+				return;
+			}
 			var on = panel.classList.toggle("on");
 			panel.setAttribute("aria-hidden", on ? "false" : "true");
 			if (on && input) input.focus();
+		});
+		document.getElementById("annoDismiss").addEventListener("click", function (e) {
+			e.stopPropagation();
+			setAway(true);
 		});
 		document.getElementById("annoClose").addEventListener("click", function () {
 			panel.classList.remove("on");
