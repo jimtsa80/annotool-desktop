@@ -339,7 +339,10 @@
 	background: #fff;
 	cursor: pointer;
 }
-.combo-row.is-locked { box-shadow: inset 3px 0 0 #f0b429; }
+.combo-row.is-locked {
+	box-shadow: inset 3px 0 0 #f0b429;
+	background: rgba(240, 180, 41, 0.16);
+}
 .combo-name {
 	flex: 1;
 	min-width: 0;

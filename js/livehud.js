@@ -182,7 +182,11 @@
 		var targets = targetsForProject();
 		var rows = [];
 		for (var k in map) if (map.hasOwnProperty(k)) rows.push(decorate(map[k], targets));
+		var locked = locksForProject();
 		rows.sort(function (a, b) {
+			var aHeld = locked.indexOf(a.key) !== -1;
+			var bHeld = locked.indexOf(b.key) !== -1;
+			if (aHeld !== bHeld) return aHeld ? -1 : 1;
 			if ((a.here > 0) !== (b.here > 0)) return a.here > 0 ? -1 : 1;
 			if (b.value !== a.value) return b.value - a.value;
 			return (a.brand + a.location).localeCompare(b.brand + b.location);
@@ -198,7 +202,7 @@
 			'<div class="combo-bar"></div>' +
 			'<div class="combo-main"><span class="combo-name"></span><span class="combo-num"></span></div>' +
 			'<div class="combo-meta"><span class="combo-here"></span><span class="combo-sub"></span>' +
-			'<label class="combo-pin-label" title="κράτα αυτό και δες μόνο όσα έχεις τσεκάρει"><input class="combo-pin" type="checkbox"> κράτα</label>' +
+			'<label class="combo-pin-label" title="μένει πάνω στη λίστα και το επόμενο πάει και σε αυτό"><input class="combo-pin" type="checkbox"> κράτα</label>' +
 			'<label class="combo-target-label">στόχος <input class="combo-target" type="number" min="0" step="1"></label></div>';
 		return el;
 	}
@@ -231,7 +235,7 @@
 		var q = query.trim().toLowerCase();
 		var blob = (row.brand + " " + row.location).toLowerCase();
 		var matchesQuery = !q || blob.indexOf(q) !== -1;
-		el.style.display = matchesQuery && (!locked.length || held) ? "" : "none";
+		el.style.display = (held || matchesQuery) ? "" : "none";
 	}
 
 	function paintList(rows) {
@@ -239,7 +243,7 @@
 		var empty = document.getElementById("comboEmpty");
 		var seen = {};
 		var visible = 0;
-		var freeze = document.activeElement && list.contains(document.activeElement);
+		var freeze = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("combo-target") && list.contains(document.activeElement);
 		for (var i = 0; i < rows.length; i++) {
 			var row = rows[i];
 			seen[row.key] = true;
@@ -267,7 +271,7 @@
 		var count = document.getElementById("comboPanelCount");
 		if (count) {
 			var lockedCount = locksForProject().length;
-			count.textContent = lockedCount ? ("μόνο " + lockedCount) : (rows.length ? (rows.length + "") : "");
+			count.textContent = lockedCount ? (lockedCount + " κρατημένα") : (rows.length ? (rows.length + "") : "");
 		}
 		var clearBtn = document.getElementById("comboLockClear");
 		if (clearBtn) clearBtn.classList.toggle("on", locksForProject().length > 0);
@@ -323,7 +327,7 @@
 		var bar = document.getElementById("comboGlanceBar");
 		if (!glance || !numEl) return;
 
-		fillPick(lockedCount ? rows.filter(function (row) { return locksForProject().indexOf(row.key) !== -1; }) : rows);
+		fillPick(rows);
 		var row = watchedKey && map[watchedKey] ? decorate(map[watchedKey], targetsForProject()) : null;
 		if (!row && watchedKey) {
 			var parts = watchedKey.split(SEP);
