@@ -2,6 +2,7 @@
 	var SEP = "\u0001";
 	var TARGETS_KEY = "annotool.comboTargets";
 	var LOCK_KEY = "annotool.comboLocks";
+	var VIEW_KEY = "annotool.comboView";
 	var METRIC_KEY = "annotool.comboMetric";
 	var OPEN_KEY = "annotool.comboPanelOpen";
 	var POS_KEY = "annotool.comboPanelPos";
@@ -12,6 +13,9 @@
 	var capRaf = 0;
 	var capNodes = {};
 	var rowEls = {};
+	var viewEls = {};
+	var viewQuery = "";
+	var viewOpen = false;
 	var watchedKey = "";
 	var manualWatch = false;
 	var drag = null;
@@ -71,6 +75,31 @@
 		if (at >= 0) list.splice(at, 1);
 		else list.push(key);
 		setLocks(list);
+	}
+
+	function viewCombos() {
+		var list = viewsForProject();
+		var out = [], i, parts;
+		for (i = 0; i < list.length; i++) {
+			parts = list[i].split(SEP);
+			out.push({ brand: (parts[0] || "").trim(), location: parts.slice(1).join(SEP).trim() });
+		}
+		return out;
+	}
+
+	function viewsForProject() {
+		var all = loadJson(VIEW_KEY);
+		var list = all[projectKey()];
+		return Array.isArray(list) ? list : [];
+	}
+
+	function setViews(list) {
+		var all = loadJson(VIEW_KEY);
+		var pk = projectKey();
+		if (!list || !list.length) delete all[pk];
+		else all[pk] = list;
+		try { localStorage.setItem(VIEW_KEY, JSON.stringify(all)); }
+		catch (e) {}
 	}
 
 	function lockedCombos() {
@@ -202,7 +231,7 @@
 			'<div class="combo-bar"></div>' +
 			'<div class="combo-main"><span class="combo-name"></span><span class="combo-num"></span></div>' +
 			'<div class="combo-meta"><span class="combo-here"></span><span class="combo-sub"></span>' +
-			'<label class="combo-pin-label" title="μένει πάνω στη λίστα και το επόμενο πάει και σε αυτό"><input class="combo-pin" type="checkbox"> κράτα</label>' +
+			'<label class="combo-pin-label" title="μένει πάνω στη λίστα των συνδυασμών"><input class="combo-pin" type="checkbox"> κράτα</label>' +
 			'<label class="combo-target-label">στόχος <input class="combo-target" type="number" min="0" step="1"></label></div>';
 		return el;
 	}
@@ -281,43 +310,76 @@
 		}
 	}
 
-	function fillPick(rows) {
-		var pick = document.getElementById("comboPick");
-		if (!pick) return;
-		var sig = [];
-		for (var i = 0; i < rows.length; i++) sig.push(rows[i].key);
-		sig = sig.join("\n");
-		if (pick.getAttribute("data-sig") !== sig && document.activeElement !== pick) {
-			pick.innerHTML = "";
-			var all = document.createElement("option");
-			all.value = "";
-			all.textContent = rows.length ? "όλοι οι συνδυασμοί" : "κανένας συνδυασμός";
-			pick.appendChild(all);
-			for (var j = 0; j < rows.length; j++) {
-				var opt = document.createElement("option");
-				opt.value = rows[j].key;
-				opt.textContent = rows[j].brand + " | " + rows[j].location;
-				pick.appendChild(opt);
+	function viewLabel(rows) {
+		var views = viewsForProject();
+		if (!views.length) return "όλες οι εικόνες";
+		var names = [];
+		for (var i = 0; i < rows.length; i++) {
+			if (views.indexOf(rows[i].key) !== -1) names.push(rows[i].brand + " | " + rows[i].location);
+		}
+		if (!names.length) return views.length + " συνδυασμοί";
+		if (names.length === 1) return names[0];
+		return names.length + ": " + names.join(" · ");
+	}
+
+	function paintView(rows) {
+		var btn = document.getElementById("comboViewBtn");
+		var menu = document.getElementById("comboViewMenu");
+		var list = document.getElementById("comboViewList");
+		if (btn) {
+			btn.textContent = viewLabel(rows);
+			btn.classList.toggle("on", viewsForProject().length > 0);
+		}
+		if (menu) menu.classList.toggle("open", viewOpen);
+		if (!list) return;
+		var views = viewsForProject();
+		var q = viewQuery.trim().toLowerCase();
+		var ordered = rows.slice().sort(function (a, b) {
+			var aHeld = views.indexOf(a.key) !== -1;
+			var bHeld = views.indexOf(b.key) !== -1;
+			if (aHeld !== bHeld) return aHeld ? -1 : 1;
+			return (a.brand + a.location).localeCompare(b.brand + b.location);
+		});
+		var seen = {};
+		var freeze = document.activeElement && list.contains(document.activeElement);
+		for (var i = 0; i < ordered.length; i++) {
+			var row = ordered[i];
+			seen[row.key] = true;
+			var el = viewEls[row.key];
+			if (!el) {
+				el = document.createElement("label");
+				el.className = "combo-view-row";
+				el._comboKey = row.key;
+				el.innerHTML = '<input type="checkbox" class="combo-view-pin"><span class="combo-view-name"></span>';
+				viewEls[row.key] = el;
+				list.appendChild(el);
 			}
-			pick.setAttribute("data-sig", sig);
+			el.querySelector(".combo-view-name").textContent = row.brand + " | " + row.location;
+			var pin = el.querySelector(".combo-view-pin");
+			var held = views.indexOf(row.key) !== -1;
+			if (pin && document.activeElement !== pin) pin.checked = held;
+			el.classList.toggle("is-on", held);
+			var blob = (row.brand + " " + row.location).toLowerCase();
+			el.style.display = (held || !q || blob.indexOf(q) !== -1) ? "" : "none";
 		}
-		if (document.activeElement === pick) return;
-		var want = watchedKey || "";
-		var found = want === "";
-		if (!found) {
-			for (var n = 0; n < pick.options.length; n++) {
-				if (pick.options[n].value === want) { found = true; break; }
+		for (var key in viewEls) {
+			if (!viewEls.hasOwnProperty(key) || seen[key]) continue;
+			if (viewEls[key].parentNode) viewEls[key].parentNode.removeChild(viewEls[key]);
+			delete viewEls[key];
+		}
+		if (!freeze) {
+			for (var j = 0; j < ordered.length; j++) {
+				var node = viewEls[ordered[j].key];
+				if (node && list.children[j] !== node) list.insertBefore(node, list.children[j] || null);
 			}
 		}
-		if (!found && want) {
-			var bits = want.split(SEP);
-			var extra = document.createElement("option");
-			extra.value = want;
-			extra.textContent = (bits[0] || "") + " | " + bits.slice(1).join(SEP);
-			pick.appendChild(extra);
-			found = true;
-		}
-		pick.value = found ? want : "";
+	}
+
+	function followView() {
+		var combos = viewCombos();
+		if (!combos.length) return;
+		if (typeof imName !== "undefined" && typeof imageHasAnyCombo === "function" && imageHasAnyCombo(imName, combos)) return;
+		if (typeof goToFilteredStart === "function") goToFilteredStart();
 	}
 
 	function paintGlance(map, rows) {
@@ -327,7 +389,7 @@
 		var bar = document.getElementById("comboGlanceBar");
 		if (!glance || !numEl) return;
 
-		fillPick(rows);
+		paintView(rows);
 		var row = watchedKey && map[watchedKey] ? decorate(map[watchedKey], targetsForProject()) : null;
 		if (!row && watchedKey) {
 			var parts = watchedKey.split(SEP);
@@ -344,8 +406,8 @@
 			for (var i = 0; i < rows.length; i++) { boxes += rows[i].boxes; hits += rows[i].hits; }
 			numEl.textContent = rows.length ? fmt(metric === "hits" ? hits : boxes) : "";
 			hintEl.textContent = rows.length
-				? ((lockedCount ? ("κλειδωμένα " + lockedCount + " · ") : "") + (metric === "hits" ? (fmt(boxes) + " τετράγωνα") : ("hits " + fmt(hits))))
-				: (lockedCount ? ("κλειδωμένα " + lockedCount) : "");
+				? ((lockedCount ? ("κρατημένα " + lockedCount + " · ") : "") + (metric === "hits" ? (fmt(boxes) + " τετράγωνα") : ("hits " + fmt(hits))))
+				: (lockedCount ? ("κρατημένα " + lockedCount) : "");
 			bar.className = "";
 			return;
 		}
@@ -354,7 +416,7 @@
 		numEl.textContent = row.target ? (fmt(row.value) + " / " + fmt(row.target)) : fmt(row.value);
 		var unit = metric === "hits" ? "hits" : "τετράγωνα";
 		var hereBit = row.here ? (" · εδώ " + row.here) : "";
-		hintEl.textContent = (lockedCount ? ("κλειδωμένα " + lockedCount + " · ") : "") + (row.hint ? row.hint + " · " : "") + unit + " · " + row.other + hereBit;
+		hintEl.textContent = (lockedCount ? ("κρατημένα " + lockedCount + " · ") : "") + (row.hint ? row.hint + " · " : "") + unit + " · " + row.other + hereBit;
 		if (row.target) {
 			bar.className = "on";
 			bar.querySelector("i").style.width = row.pct + "%";
@@ -417,12 +479,12 @@
 
 	function paintLockFocus() {
 		if (typeof brd === "undefined" || !brd) return;
-		var locked = locksForProject();
-		var on = locked.length > 0;
+		var views = viewsForProject();
+		var on = views.length > 0;
 		eachBoardPolygon(function (o) {
 			var a = o.annotation || {};
 			var key = comboKey((a.brand || "").trim(), (a.tpoint || "").trim());
-			var fade = on && locked.indexOf(key) === -1;
+			var fade = on && views.indexOf(key) === -1;
 			var op = fade ? "0.14" : "";
 			if (o.rendNode) o.rendNode.style.opacity = op;
 			if (o.borders) {
@@ -602,18 +664,53 @@
 			query = this.value || "";
 			refresh();
 		});
-		$("#comboPick").on("change", function () {
-			manualWatch = true;
-			watchedKey = this.value || "";
+		$("#comboViewBtn").on("click", function (e) {
+			e.stopPropagation();
+			viewOpen = !viewOpen;
+			var menu = document.getElementById("comboViewMenu");
+			if (menu) menu.classList.toggle("open", viewOpen);
+			if (viewOpen) {
+				var input = document.getElementById("comboViewSearch");
+				if (input) window.setTimeout(function () { input.focus(); }, 0);
+			}
+		});
+		$("#comboViewSearch").on("input", function () {
+			viewQuery = this.value || "";
 			refresh();
-			if (typeof goToFilteredStart === "function") goToFilteredStart();
+		});
+		$("#comboViewSearch").on("click", function (e) { e.stopPropagation(); });
+		$("#comboViewAll").on("click", function (e) {
+			e.stopPropagation();
+			setViews([]);
+			refresh();
+		});
+		$("#comboViewList").on("change", ".combo-view-pin", function (e) {
+			e.stopPropagation();
+			var row = $(this).closest(".combo-view-row")[0];
+			if (!row || !row._comboKey) return;
+			var list = viewsForProject();
+			var at = list.indexOf(row._comboKey);
+			if (this.checked && at < 0) list.push(row._comboKey);
+			if (!this.checked && at >= 0) list.splice(at, 1);
+			setViews(list);
+			refresh();
+			followView();
+		});
+		$(document).on("click", function (e) {
+			if (!$(e.target).closest("#comboView").length) {
+				viewOpen = false;
+				var menu = document.getElementById("comboViewMenu");
+				if (menu) menu.classList.remove("open");
+			}
+		});
+		$("#comboViewMenu").on("mousewheel DOMMouseScroll wheel", function (e) {
+			e.stopPropagation();
 		});
 		$("#comboList").on("click", ".combo-row", function (e) {
 			if ($(e.target).closest("input, label, button").length) return;
 			manualWatch = true;
 			watchedKey = this._comboKey || "";
 			refresh();
-			if (typeof goToFilteredStart === "function") goToFilteredStart();
 		});
 		$("#comboList").on("change", ".combo-pin", function (e) {
 			e.stopPropagation();
@@ -710,16 +807,9 @@
 		openPanel: function () { setPanel(true); },
 		setCaptions: setCaptions,
 		toggleCaptions: toggleCaptions,
-		navCombo: function () {
-			if (!manualWatch || !watchedKey) return null;
-			var parts = watchedKey.split(SEP);
-			var brand = (parts[0] || "").trim();
-			var location = parts.slice(1).join(SEP).trim();
-			if (!brand || !location) return null;
-			return { brand: brand, location: location };
-		},
+		navCombo: function () { return null; },
 		navCombos: function () {
-			var list = lockedCombos();
+			var list = viewCombos();
 			return list.length ? list : null;
 		}
 	};

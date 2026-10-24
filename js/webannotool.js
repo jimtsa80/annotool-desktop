@@ -1481,12 +1481,12 @@ function lastComboIndex() {
 }
 
 function noComboNoty() {
-    var locked = window.AnnoLive && AnnoLive.navCombos && AnnoLive.navCombos();
+    var chosen = activeNavCombos();
     new Noty({
         type: "warning",
         theme: "mint",
         layout: "topRight",
-        text: locked && locked.length ? "δεν υπάρχει άλλη εικόνα με τα κλειδωμένα" : "δεν υπάρχει άλλη εικόνα με αυτόν τον συνδυασμό",
+        text: chosen && chosen.length ? "δεν υπάρχει άλλη εικόνα με αυτούς τους συνδυασμούς" : "δεν υπάρχει άλλη εικόνα με αυτόν τον συνδυασμό",
         timeout: 1400
     }).show()
 }
@@ -1521,7 +1521,7 @@ function syncCarryToggle() {
 function loadNextImg() {
     if (!(brd && brd.renderer) || imReadFlag) return !1;
     var a = seekCombo(imIndex, 1);
-    if (a < 0) return navCombo() ? noComboNoty() : !1;
+    if (a < 0) return activeNavCombos() ? noComboNoty() : !1;
     carryStickyFrom = carryBoxesOn() ? (imName || "") : "";
     imReadFlag = !0;
     loadImg(a);
@@ -1569,7 +1569,7 @@ function loadNext10Img() {
 function loadPrevImg() {
     if (!(brd && brd.renderer) || imReadFlag) return !1;
     var a = seekCombo(imIndex, -1);
-    if (a < 0) return navCombo() ? noComboNoty() : !1;
+    if (a < 0) return activeNavCombos() ? noComboNoty() : !1;
     imReadFlag = !0;
     loadImg(a)
 }
@@ -1585,7 +1585,7 @@ function loadPrev10Img() {
 function loadFirstImg() {
     if (!(brd && brd.renderer) || imReadFlag || !imIndices.length) return !1;
     var idx = firstComboIndex();
-    if (idx < 0) return navCombo() ? noComboNoty() : !1;
+    if (idx < 0) return activeNavCombos() ? noComboNoty() : !1;
     if (idx === imIndex) return !1;
     imReadFlag = !0;
     loadImg(idx)
@@ -1594,7 +1594,7 @@ function loadFirstImg() {
 function loadLastImg() {
     if (!(brd && brd.renderer) || imReadFlag || !imIndices.length) return !1;
     var last = lastComboIndex();
-    if (last < 0) return navCombo() ? noComboNoty() : !1;
+    if (last < 0) return activeNavCombos() ? noComboNoty() : !1;
     if (last === imIndex) return !1;
     imReadFlag = !0;
     loadImg(last)
