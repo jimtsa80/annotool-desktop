@@ -1428,14 +1428,29 @@ function imageHasCombo(name, combo) {
     return !1
 }
 
+function activeNavCombos() {
+    if (window.AnnoLive && AnnoLive.navCombos) {
+        var many = AnnoLive.navCombos();
+        if (many && many.length) return many;
+    }
+    var one = navCombo();
+    return one ? [one] : null;
+}
+
+function imageHasAnyCombo(name, combos) {
+    var i;
+    for (i = 0; i < combos.length; i++) if (imageHasCombo(name, combos[i])) return true;
+    return false;
+}
+
 function seekCombo(fromIndex, dir) {
-    var combo = navCombo(), step = dir < 0 ? -1 : 1, i;
-    if (!combo) {
+    var combos = activeNavCombos(), step = dir < 0 ? -1 : 1, i;
+    if (!combos) {
         i = fromIndex + step;
         return i < 0 || i >= imIndices.length ? -1 : i
     }
     for (i = fromIndex + step; i >= 0 && i < imIndices.length; i += step) {
-        if (imageHasCombo(imIndices[i], combo)) return i
+        if (imageHasAnyCombo(imIndices[i], combos)) return i
     }
     return -1
 }
@@ -1452,21 +1467,28 @@ function seekComboSteps(fromIndex, dir, count) {
 }
 
 function firstComboIndex() {
-    var combo = navCombo(), i;
-    if (!combo) return imIndices.length ? 0 : -1;
-    for (i = 0; i < imIndices.length; i++) if (imageHasCombo(imIndices[i], combo)) return i;
+    var combos = activeNavCombos(), i;
+    if (!combos) return imIndices.length ? 0 : -1;
+    for (i = 0; i < imIndices.length; i++) if (imageHasAnyCombo(imIndices[i], combos)) return i;
     return -1
 }
 
 function lastComboIndex() {
-    var combo = navCombo(), i;
-    if (!combo) return imIndices.length - 1;
-    for (i = imIndices.length - 1; i >= 0; i--) if (imageHasCombo(imIndices[i], combo)) return i;
+    var combos = activeNavCombos(), i;
+    if (!combos) return imIndices.length - 1;
+    for (i = imIndices.length - 1; i >= 0; i--) if (imageHasAnyCombo(imIndices[i], combos)) return i;
     return -1
 }
 
 function noComboNoty() {
-    new Noty({ type: "warning", theme: "mint", layout: "topRight", text: "δεν υπάρχει άλλη εικόνα με αυτόν τον συνδυασμό", timeout: 1400 }).show()
+    var locked = window.AnnoLive && AnnoLive.navCombos && AnnoLive.navCombos();
+    new Noty({
+        type: "warning",
+        theme: "mint",
+        layout: "topRight",
+        text: locked && locked.length ? "δεν υπάρχει άλλη εικόνα με τα κλειδωμένα" : "δεν υπάρχει άλλη εικόνα με αυτόν τον συνδυασμό",
+        timeout: 1400
+    }).show()
 }
 
 function goToFilteredStart() {

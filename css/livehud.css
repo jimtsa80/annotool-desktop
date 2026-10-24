@@ -224,6 +224,20 @@
 	background: #2f9e8f;
 	color: #fff;
 }
+#comboLockClear {
+	display: none;
+	border: 0;
+	border-radius: 999px;
+	background: #f0b429;
+	color: #1a1408;
+	font-family: inherit;
+	font-size: 12px;
+	font-weight: bold;
+	line-height: 20px;
+	padding: 0 8px;
+	cursor: pointer;
+}
+#comboLockClear.on { display: inline-block; }
 #comboPanelClose {
 	border: 0;
 	background: transparent;
@@ -291,6 +305,24 @@
 	align-items: center;
 	gap: 8px;
 }
+.combo-lock {
+	position: relative;
+	flex: 0 0 auto;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.08);
+	color: #d5e2e7;
+	font-family: inherit;
+	font-size: 11px;
+	line-height: 18px;
+	padding: 0 7px;
+	cursor: pointer;
+}
+.combo-lock.on {
+	background: #f0b429;
+	color: #1a1408;
+}
+.combo-row.is-locked { box-shadow: inset 3px 0 0 #f0b429; }
 .combo-name {
 	flex: 1;
 	min-width: 0;
