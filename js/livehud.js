@@ -196,8 +196,9 @@
 		el._comboKey = row.key;
 		el.innerHTML =
 			'<div class="combo-bar"></div>' +
-			'<div class="combo-main"><button type="button" class="combo-lock" title="κλείδωσε για να βλέπεις μόνο αυτό">κλείδωμα</button><span class="combo-name"></span><span class="combo-num"></span></div>' +
+			'<div class="combo-main"><span class="combo-name"></span><span class="combo-num"></span></div>' +
 			'<div class="combo-meta"><span class="combo-here"></span><span class="combo-sub"></span>' +
+			'<label class="combo-pin-label" title="κράτα αυτό και δες μόνο όσα έχεις τσεκάρει"><input class="combo-pin" type="checkbox"> κράτα</label>' +
 			'<label class="combo-target-label">στόχος <input class="combo-target" type="number" min="0" step="1"></label></div>';
 		return el;
 	}
@@ -225,11 +226,8 @@
 		var locked = locksForProject();
 		var held = locked.indexOf(row.key) !== -1;
 		el.classList.toggle("is-locked", held);
-		var lockBtn = el.querySelector(".combo-lock");
-		if (lockBtn) {
-			lockBtn.classList.toggle("on", held);
-			lockBtn.textContent = held ? "βγάλτο" : "κλείδωμα";
-		}
+		var pin = el.querySelector(".combo-pin");
+		if (pin && document.activeElement !== pin) pin.checked = held;
 		var q = query.trim().toLowerCase();
 		var blob = (row.brand + " " + row.location).toLowerCase();
 		var matchesQuery = !q || blob.indexOf(q) !== -1;
@@ -269,7 +267,7 @@
 		var count = document.getElementById("comboPanelCount");
 		if (count) {
 			var lockedCount = locksForProject().length;
-			count.textContent = lockedCount ? (lockedCount + " κλειδωμένα") : (rows.length ? (rows.length + "") : "");
+			count.textContent = lockedCount ? ("μόνο " + lockedCount) : (rows.length ? (rows.length + "") : "");
 		}
 		var clearBtn = document.getElementById("comboLockClear");
 		if (clearBtn) clearBtn.classList.toggle("on", locksForProject().length > 0);
@@ -613,12 +611,15 @@
 			refresh();
 			if (typeof goToFilteredStart === "function") goToFilteredStart();
 		});
-		$("#comboList").on("click", ".combo-lock", function (e) {
-			e.preventDefault();
+		$("#comboList").on("change", ".combo-pin", function (e) {
 			e.stopPropagation();
 			var row = $(this).closest(".combo-row")[0];
 			if (!row || !row._comboKey) return;
-			toggleLock(row._comboKey);
+			var list = locksForProject();
+			var at = list.indexOf(row._comboKey);
+			if (this.checked && at < 0) list.push(row._comboKey);
+			if (!this.checked && at >= 0) list.splice(at, 1);
+			setLocks(list);
 			refresh();
 		});
 		$("#comboLockClear").on("click", function () {
@@ -626,6 +627,7 @@
 			refresh();
 			this.blur();
 		});
+		$("#comboList").on("change", ".combo-target", function () {
 			var key = $(this).closest(".combo-row")[0]._comboKey;
 			var raw = $.trim(this.value);
 			setTarget(key, raw === "" ? "" : (parseInt(raw, 10) || 0));

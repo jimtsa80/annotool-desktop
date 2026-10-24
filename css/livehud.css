@@ -167,7 +167,7 @@
 	display: none;
 	position: fixed;
 	z-index: 40;
-	width: 340px;
+	width: 400px;
 	max-height: 72vh;
 	flex-direction: column;
 	background: #1c282f;
@@ -182,6 +182,7 @@
 #comboPanel.open { display: flex; }
 #comboPanelHead,
 #comboSearch,
+#comboPinHint,
 #comboEmpty,
 #comboPanelFoot { flex: 0 0 auto; }
 #comboPanelHead {
@@ -247,8 +248,18 @@
 	width: 26px;
 	cursor: pointer;
 }
+#comboPinHint {
+	margin: 0 10px 6px;
+	padding: 6px 8px;
+	border-radius: 6px;
+	background: rgba(240, 180, 41, 0.16);
+	color: #ffd27a;
+	font-size: 12px;
+	line-height: 1.35;
+}
+#comboPinHint b { color: #fff3d0; }
 #comboSearch {
-	margin: 8px 10px 4px;
+	margin: 8px 10px 6px;
 	height: 28px;
 	border-radius: 6px;
 	border: 1px solid rgba(255, 255, 255, 0.12);
@@ -305,22 +316,28 @@
 	align-items: center;
 	gap: 8px;
 }
-.combo-lock {
-	position: relative;
-	flex: 0 0 auto;
-	border: 0;
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.08);
-	color: #d5e2e7;
-	font-family: inherit;
-	font-size: 11px;
-	line-height: 18px;
-	padding: 0 7px;
+.combo-pin-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0;
+	color: #ffd27a;
+	font-size: 13px;
+	font-weight: bold;
+	white-space: nowrap;
 	cursor: pointer;
 }
-.combo-lock.on {
-	background: #f0b429;
-	color: #1a1408;
+#comboPanel input.combo-pin {
+	position: static;
+	opacity: 1;
+	appearance: auto;
+	-webkit-appearance: checkbox;
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	accent-color: #f0b429;
+	background: #fff;
+	cursor: pointer;
 }
 .combo-row.is-locked { box-shadow: inset 3px 0 0 #f0b429; }
 .combo-name {
