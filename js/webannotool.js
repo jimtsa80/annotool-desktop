@@ -2051,6 +2051,31 @@ function scalePresetGrab(factor) {
     brd.unsuspendUpdate();
 }
 
+function presetCenter() {
+    if (!presetGrab) return null;
+    var sx = 0, sy = 0, n = 0, i, a, b;
+    for (i = 0; i < presetGrab.pairs.length; i++) {
+        a = presetGrab.pairs[i][0];
+        b = presetGrab.pairs[i][1];
+        if (!a || !b || typeof a.X !== "function" || typeof b.X !== "function") continue;
+        sx += (a.X() + b.X()) / 2;
+        sy += (a.Y() + b.Y()) / 2;
+        n++;
+    }
+    if (!n) return null;
+    return [sx / n, sy / n];
+}
+
+function snapPresetToCursor() {
+    if (!presetGrab || !presetPointer || !pointerOverBox(presetPointer) || !brd) return;
+    var usr, center;
+    try { usr = brd.getUsrCoordsOfMouse(presetPointer); } catch (err) { return; }
+    if (!usr) return;
+    center = presetCenter();
+    if (!center) return;
+    shiftPresetGrab(usr[0] - center[0], usr[1] - center[1]);
+}
+
 function beginPresetGrab(polys, quiet) {
     endPresetGrab();
     if (!polys || !polys.length || !brd) return;
@@ -2068,6 +2093,7 @@ function beginPresetGrab(polys, quiet) {
     if (presetPointer && pointerOverBox(presetPointer)) {
         try { presetGrab.last = brd.getUsrCoordsOfMouse(presetPointer); } catch (err) {}
     }
+    if (!quiet) snapPresetToCursor();
     var board = document.getElementById("box");
     if (board) board.classList.add("preset-grab");
     if (quiet) return;
