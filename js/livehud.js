@@ -569,6 +569,101 @@
 		return { x: minX, y: minY };
 	}
 
+	function polyBounds(poly) {
+		var parents = poly.getParents ? poly.getParents() : [];
+		var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, n = 0;
+		for (var i = 0; i < parents.length; i++) {
+			var p = brd.objects[parents[i]];
+			if (!p || typeof p.X !== "function") continue;
+			var s = screenPoint(p.X(), p.Y());
+			if (!s) continue;
+			if (s.x < minX) minX = s.x;
+			if (s.y < minY) minY = s.y;
+			if (s.x > maxX) maxX = s.x;
+			if (s.y > maxY) maxY = s.y;
+			n++;
+		}
+		if (n < 2) return null;
+		return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+	}
+
+	function selectedReadyPoly() {
+		if (typeof highlighted === "undefined" || !highlighted || highlighted.length !== 1) return null;
+		var poly = highlighted[0];
+		if (!poly || !poly.annotation) return null;
+		if (poly.visProp && poly.visProp.visible === false) return null;
+		if (!(poly.annotation.brand || "").trim()) return null;
+		return poly;
+	}
+
+	function hitsPadEl() {
+		var el = document.getElementById("hitsPad");
+		if (el) return el;
+		var board = document.getElementById("box");
+		if (!board) return null;
+		el = document.createElement("div");
+		el.id = "hitsPad";
+		el.innerHTML = '<button type="button" data-dir="-1">−</button><span></span><button type="button" data-dir="1">+</button>';
+		el.addEventListener("mousedown", function (e) { e.stopPropagation(); e.preventDefault(); });
+		el.addEventListener("mouseup", function (e) { e.stopPropagation(); e.preventDefault(); });
+		el.addEventListener("click", function (e) {
+			e.stopPropagation();
+			e.preventDefault();
+			var btn = e.target.closest ? e.target.closest("button") : null;
+			if (!btn) return;
+			nudgeHits(parseInt(btn.getAttribute("data-dir"), 10) || 0);
+		});
+		board.appendChild(el);
+		return el;
+	}
+
+	function nudgeHits(dir) {
+		var poly = selectedReadyPoly();
+		if (!poly || !dir) return;
+		var n = parseInt(poly.annotation.hits, 10);
+		if (isNaN(n) || n < 1) n = 1;
+		n = Math.max(1, Math.min(15, n + dir));
+		poly.annotation.hits = n;
+		var hits = document.getElementById("hits");
+		if (hits) hits.value = String(n);
+		paintHitsPad();
+	}
+
+	function paintHitsPad() {
+		var el = hitsPadEl();
+		if (!el) return;
+		var poly = (!window.presetGrab) ? selectedReadyPoly() : null;
+		if (!poly) {
+			el.classList.remove("on");
+			return;
+		}
+		var rect = polyBounds(poly);
+		var board = document.getElementById("box");
+		if (!rect || !board) {
+			el.classList.remove("on");
+			return;
+		}
+		el.classList.add("on");
+		var label = el.querySelector("span");
+		var shown = parseInt(poly.annotation.hits, 10);
+		if (isNaN(shown) || shown < 1) shown = 1;
+		if (label) label.textContent = shown + " hits";
+		var width = el.offsetWidth || 120;
+		var height = el.offsetHeight || 34;
+		var left = rect.x + rect.w + 8;
+		if (left + width > board.clientWidth - 4) left = Math.max(4, rect.x - width - 8);
+		var top = rect.y;
+		if (top + height > board.clientHeight - 4) top = Math.max(4, board.clientHeight - height - 4);
+		el.style.left = left + "px";
+		el.style.top = top + "px";
+	}
+
+	var hitsRaf = 0;
+	function tickHits() {
+		paintHitsPad();
+		hitsRaf = requestAnimationFrame(tickHits);
+	}
+
 	function captionText(ann) {
 		var brand = (ann.brand || "").trim();
 		var location = (ann.tpoint || "").trim();
@@ -800,6 +895,7 @@
 		setPanel(open);
 		refresh();
 		setInterval(refresh, 400);
+		if (!hitsRaf) hitsRaf = requestAnimationFrame(tickHits);
 	}
 
 	window.AnnoLive = {

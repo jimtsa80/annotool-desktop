@@ -410,6 +410,41 @@ html.theme-dark #comboPick option {
 	text-align: center;
 	margin: 0;
 }
+#hitsPad {
+	position: absolute;
+	z-index: 7;
+	display: none;
+	align-items: center;
+	gap: 4px;
+	padding: 3px;
+	border-radius: 8px;
+	background: #1c2830;
+	color: #fff;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+	font-family: "Didact Gothic", sans-serif;
+	font-size: 14px;
+	font-weight: bold;
+	white-space: nowrap;
+}
+#hitsPad.on { display: flex; }
+#hitsPad button {
+	width: 28px;
+	height: 28px;
+	border: 0;
+	border-radius: 6px;
+	background: #f0b429;
+	color: #1a1408;
+	font-family: inherit;
+	font-size: 18px;
+	font-weight: bold;
+	line-height: 28px;
+	padding: 0;
+	cursor: pointer;
+}
+#hitsPad span {
+	min-width: 58px;
+	text-align: center;
+}
 #brandstools #brandsabc.clicked,
 #tpointstools #tpointsabc.clicked,
 html.theme-dark #brandstools #brandsabc.clicked,
