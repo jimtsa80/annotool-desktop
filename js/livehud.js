@@ -7,6 +7,7 @@
 	var METRIC_KEY = "annotool.comboMetric";
 	var OPEN_KEY = "annotool.comboPanelOpen";
 	var POS_KEY = "annotool.comboPanelPos";
+	var SORT_KEY = "annotool.comboSort";
 
 	var metric = "boxes";
 	var query = "";
@@ -22,6 +23,8 @@
 	var drag = null;
 	var exposure = null;
 	var exposureSig = "";
+	var exposureRates = {};
+	var sortBySize = false;
 
 	function fmt(n) {
 		n = n || 0;
@@ -121,7 +124,21 @@
 			return;
 		}
 		el.style.display = "";
-		el.textContent = match.label + " · " + match.combos.length + " στόχοι, expected seconds, σύγκριση με hits";
+		el.textContent = match.label + " · ρυθμός ανά ώρα, για να μοιράζονται στο αρχείο και όχι στο τέλος";
+	}
+
+	function hourlyRate(brand, location, combo) {
+		if (combo && combo.secondsPerHour) return Number(combo.secondsPerHour) || 0;
+		var files = (exposure && exposure.files) || [];
+		var i, j, list, other;
+		for (i = 0; i < files.length; i++) {
+			list = files[i].combos || [];
+			for (j = 0; j < list.length; j++) {
+				other = list[j];
+				if (other.brand === brand && other.location === location && other.secondsPerHour) return Number(other.secondsPerHour) || 0;
+			}
+		}
+		return 0;
 	}
 
 	function applyExposureMatch() {
@@ -131,13 +148,17 @@
 		var sig = projectKey() + "\n" + match.id;
 		if (sig === exposureSig) return;
 		exposureSig = sig;
-		var map = {}, i, combo, n;
+		var map = {}, rates = {}, i, combo, n, key, rate;
 		for (i = 0; i < match.combos.length; i++) {
 			combo = match.combos[i];
 			n = Math.round(Number(combo.expectedSeconds) || 0);
 			if (!n || !combo.brand || !combo.location) continue;
-			map[comboKey(combo.brand, combo.location)] = n;
+			key = comboKey(combo.brand, combo.location);
+			map[key] = n;
+			rate = hourlyRate(combo.brand, combo.location, combo);
+			if (rate) rates[key] = rate;
 		}
+		exposureRates = rates;
 		replaceTargets(map);
 		useHitsMetric();
 	}
@@ -296,6 +317,19 @@
 		return boxSelection() || listSelection();
 	}
 
+	function fileProgress() {
+		if (typeof imIndices === "undefined" || !imIndices || !imIndices.length) return 0;
+		var index = (typeof imIndex === "number" && imIndex >= 0) ? imIndex + 1 : 0;
+		if (!index) return 0;
+		return Math.max(0, Math.min(1, index / imIndices.length));
+	}
+
+	function paceDue(target) {
+		var progress = fileProgress();
+		if (!target || progress < 0.08) return 0;
+		return Math.round(target * progress);
+	}
+
 	function decorate(row, targets) {
 		var value = metric === "hits" ? row.hits : row.boxes;
 		var target = parseInt(targets[row.key], 10);
@@ -309,9 +343,16 @@
 			if (diff > 0) { state = value >= target * 0.85 ? "near" : "ok"; hint = "λείπουν " + fmt(diff); }
 			else if (diff < 0) { state = "over"; hint = "πάνω " + fmt(-diff); }
 			else { state = "near"; hint = "ακριβώς στον στόχο"; }
+			var due = paceDue(target);
+			if (due > 0) {
+				var pace = "ως εδώ ~" + fmt(due);
+				if (due >= 8 && value < due * 0.75) pace = "πίσω, " + pace;
+				hint = hint ? (hint + " · " + pace) : pace;
+			}
 		}
 		row.value = value;
 		row.target = target;
+		row.rate = exposureRates[row.key] || 0;
 		row.state = state;
 		row.pct = pct;
 		row.hint = hint;
@@ -334,6 +375,7 @@
 			var aHeld = locked.indexOf(a.key) !== -1;
 			var bHeld = locked.indexOf(b.key) !== -1;
 			if (aHeld !== bHeld) return aHeld ? -1 : 1;
+			if (sortBySize && b.target !== a.target) return b.target - a.target;
 			if ((a.here > 0) !== (b.here > 0)) return a.here > 0 ? -1 : 1;
 			if (b.value !== a.value) return b.value - a.value;
 			return (a.brand + a.location).localeCompare(b.brand + b.location);
@@ -348,7 +390,7 @@
 		el.innerHTML =
 			'<div class="combo-bar"></div>' +
 			'<div class="combo-main"><span class="combo-name"></span><span class="combo-num"></span></div>' +
-			'<div class="combo-meta"><span class="combo-here"></span><span class="combo-sub"></span>' +
+			'<div class="combo-meta"><span class="combo-here"></span><span class="combo-rate"></span><span class="combo-sub"></span>' +
 			'<label class="combo-pin-label" title="μένει πάνω στη λίστα των συνδυασμών"><input class="combo-pin" type="checkbox"> κράτα</label>' +
 			'<label class="combo-target-label">στόχος <input class="combo-target" type="number" min="0" step="1"></label></div>';
 		return el;
@@ -359,6 +401,11 @@
 		el.querySelector(".combo-num").textContent = row.target ? (fmt(row.value) + " / " + fmt(row.target)) : fmt(row.value);
 		var sub = row.hint ? (row.hint + " · " + row.other) : row.other;
 		el.querySelector(".combo-sub").textContent = sub;
+		var rateEl = el.querySelector(".combo-rate");
+		if (rateEl) {
+			rateEl.textContent = row.rate ? ("ρυθμός " + fmt(Math.round(row.rate)) + "/ώρα") : "";
+			rateEl.style.display = row.rate ? "" : "none";
+		}
 		var here = el.querySelector(".combo-here");
 		if (row.here) {
 			here.style.display = "";
@@ -878,6 +925,12 @@
 			var input = document.getElementById("comboTargetFile");
 			if (input) input.click();
 		});
+		$("#comboSortSize").on("click", function () {
+			sortBySize = !sortBySize;
+			this.classList.toggle("on", sortBySize);
+			try { localStorage.setItem(SORT_KEY, sortBySize ? "size" : ""); } catch (e) {}
+			refresh();
+		});
 		$("#comboTargetFile").on("change", function () {
 			var file = this.files && this.files[0];
 			this.value = "";
@@ -1021,6 +1074,9 @@
 		var savedMetric = "";
 		try { savedMetric = localStorage.getItem(METRIC_KEY) || ""; } catch (e) {}
 		metric = savedMetric === "hits" ? "hits" : "boxes";
+		try { sortBySize = localStorage.getItem(SORT_KEY) === "size"; } catch (e) {}
+		var sortBtn = document.getElementById("comboSortSize");
+		if (sortBtn) sortBtn.classList.toggle("on", sortBySize);
 		var buttons = document.querySelectorAll("#comboMetric button");
 		for (var i = 0; i < buttons.length; i++) {
 			buttons[i].classList.toggle("on", buttons[i].getAttribute("data-metric") === metric);
