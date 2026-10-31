@@ -271,6 +271,7 @@
 #comboPanelHead,
 #comboSearch,
 #comboPinHint,
+#comboTargetHint,
 #comboEmpty,
 #comboPanelFoot { flex: 0 0 auto; }
 #comboPanelHead {
@@ -327,6 +328,26 @@
 	cursor: pointer;
 }
 #comboLockClear.on { display: inline-block; }
+#comboTargetBtn {
+	border: 0;
+	border-radius: 999px;
+	background: #2f9e8f;
+	color: #fff;
+	font-family: inherit;
+	font-size: 12px;
+	font-weight: bold;
+	line-height: 20px;
+	padding: 0 8px;
+	cursor: pointer;
+}
+#comboTargetFile { display: none; }
+#comboTargetHint {
+	display: none;
+	margin: 0 10px 6px;
+	color: #9fd9cf;
+	font-size: 12px;
+	line-height: 1.35;
+}
 #comboPanelClose {
 	border: 0;
 	background: transparent;

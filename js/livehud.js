@@ -1,6 +1,7 @@
 (function () {
 	var SEP = "\u0001";
 	var TARGETS_KEY = "annotool.comboTargets";
+	var EXPOSURE_KEY = "annotool.exposureDoc";
 	var LOCK_KEY = "annotool.comboLocks";
 	var VIEW_KEY = "annotool.comboView";
 	var METRIC_KEY = "annotool.comboMetric";
@@ -19,6 +20,8 @@
 	var watchedKey = "";
 	var manualWatch = false;
 	var drag = null;
+	var exposure = null;
+	var exposureSig = "";
 
 	function fmt(n) {
 		n = n || 0;
@@ -42,6 +45,109 @@
 	function targetsForProject() {
 		var all = loadJson(TARGETS_KEY);
 		return all[projectKey()] || {};
+	}
+
+	function replaceTargets(map) {
+		var all = loadJson(TARGETS_KEY);
+		all[projectKey()] = map || {};
+		try { localStorage.setItem(TARGETS_KEY, JSON.stringify(all)); }
+		catch (e) {}
+	}
+
+	function normName(value) {
+		return String(value || "").toLowerCase().replace(/\.zip$/i, "").replace(/[^a-z0-9]+/g, "");
+	}
+
+	function exposureNames() {
+		var names = [];
+		if (typeof activeCluster !== "undefined" && activeCluster) names.push(activeCluster);
+		if (typeof prefs !== "undefined" && prefs) {
+			if (prefs.projectName) names.push(prefs.projectName);
+			if (prefs.projectRoot) names.push(prefs.projectRoot);
+		}
+		if (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.project) names.push(allAnnotations.project);
+		return names;
+	}
+
+	function matchExposure(doc) {
+		var files = (doc && doc.files) || [];
+		var names = exposureNames();
+		var best = null, bestScore = 0, tied = false;
+		var i, j, k, file, keys, name, score;
+		for (i = 0; i < files.length; i++) {
+			file = files[i];
+			keys = [normName(file.file), normName(file.sheet)];
+			score = 0;
+			for (j = 0; j < names.length; j++) {
+				name = normName(names[j]);
+				if (name.length < 12) continue;
+				for (k = 0; k < keys.length; k++) {
+					if (!keys[k]) continue;
+					if (keys[k].indexOf(name) !== -1 || name.indexOf(keys[k]) !== -1) {
+						score = Math.max(score, Math.min(name.length, keys[k].length));
+					}
+				}
+			}
+			if (score > bestScore) { best = file; bestScore = score; tied = false; }
+			else if (score && score === bestScore) tied = true;
+		}
+		if (best && !tied && bestScore >= 12) {
+			return {
+				id: normName(best.file) || normName(best.sheet),
+				label: String(best.file || best.sheet || "").replace(/\.zip$/i, ""),
+				combos: best.combos || []
+			};
+		}
+		var summary = doc && doc.summary;
+		return { id: "summary", label: "όλα τα αρχεία μαζί", combos: (summary && summary.combos) || [] };
+	}
+
+	function useHitsMetric() {
+		if (metric === "hits") return;
+		metric = "hits";
+		try { localStorage.setItem(METRIC_KEY, "hits"); } catch (e) {}
+		var buttons = document.querySelectorAll("#comboMetric button");
+		for (var i = 0; i < buttons.length; i++) {
+			buttons[i].classList.toggle("on", buttons[i].getAttribute("data-metric") === "hits");
+		}
+	}
+
+	function paintExposureHint(match) {
+		var el = document.getElementById("comboTargetHint");
+		if (!el) return;
+		if (!match || !match.combos || !match.combos.length) {
+			el.style.display = "none";
+			el.textContent = "";
+			return;
+		}
+		el.style.display = "";
+		el.textContent = match.label + " · " + match.combos.length + " στόχοι, expected seconds, σύγκριση με hits";
+	}
+
+	function applyExposureMatch() {
+		if (!exposure || projectKey() === "_") return;
+		var match = matchExposure(exposure);
+		paintExposureHint(match);
+		var sig = projectKey() + "\n" + match.id;
+		if (sig === exposureSig) return;
+		exposureSig = sig;
+		var map = {}, i, combo, n;
+		for (i = 0; i < match.combos.length; i++) {
+			combo = match.combos[i];
+			n = Math.round(Number(combo.expectedSeconds) || 0);
+			if (!n || !combo.brand || !combo.location) continue;
+			map[comboKey(combo.brand, combo.location)] = n;
+		}
+		replaceTargets(map);
+		useHitsMetric();
+	}
+
+	function rememberExposure(doc) {
+		exposure = doc;
+		exposureSig = "";
+		try { localStorage.setItem(EXPOSURE_KEY, JSON.stringify(doc)); } catch (e) {}
+		applyExposureMatch();
+		refresh();
 	}
 
 	function setTarget(key, value) {
@@ -143,12 +249,18 @@
 		}
 	}
 
+	function inExposureScope(name) {
+		if (typeof activeCluster === "undefined" || !activeCluster) return true;
+		if (typeof clusterGroups === "undefined" || !clusterGroups) return true;
+		return String(name || "").indexOf(activeCluster + "/") === 0;
+	}
+
 	function collect() {
 		var map = {};
 		var live = useLiveBoard();
 		var images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
 		for (var name in images) {
-			if (!images.hasOwnProperty(name)) continue;
+			if (!images.hasOwnProperty(name) || !inExposureScope(name)) continue;
 			if (live && name === imName) continue;
 			var anns = images[name].annotations || [];
 			for (var i = 0; i < anns.length; i++) {
@@ -209,6 +321,12 @@
 
 	function sortedRows(map) {
 		var targets = targetsForProject();
+		var k, parts;
+		for (k in targets) {
+			if (!targets.hasOwnProperty(k) || map[k]) continue;
+			parts = k.split(SEP);
+			map[k] = { key: k, brand: parts[0] || "", location: parts.slice(1).join(SEP), boxes: 0, hits: 0, here: 0 };
+		}
 		var rows = [];
 		for (var k in map) if (map.hasOwnProperty(k)) rows.push(decorate(map[k], targets));
 		var locked = locksForProject();
@@ -465,6 +583,7 @@
 	}
 
 	function refresh() {
+		applyExposureMatch();
 		if (!manualWatch) {
 			var follow = listSelection() || boxSelection();
 			if (follow) watchedKey = comboKey(follow.brand, follow.location);
@@ -755,6 +874,30 @@
 		$("#comboMetric").on("click", "button", function () {
 			setMetric(this.getAttribute("data-metric"));
 		});
+		$("#comboTargetBtn").on("click", function () {
+			var input = document.getElementById("comboTargetFile");
+			if (input) input.click();
+		});
+		$("#comboTargetFile").on("change", function () {
+			var file = this.files && this.files[0];
+			this.value = "";
+			if (!file) return;
+			var reader = new FileReader();
+			reader.onload = function () {
+				var doc;
+				try { doc = JSON.parse(reader.result); }
+				catch (err) {
+					new Noty({ type: "error", theme: "mint", layout: "topRight", text: "το αρχείο δεν είναι json", timeout: 1600 }).show();
+					return;
+				}
+				if (!doc || !doc.files || !doc.summary) {
+					new Noty({ type: "error", theme: "mint", layout: "topRight", text: "αυτό το json δεν έχει στόχους", timeout: 1600 }).show();
+					return;
+				}
+				rememberExposure(doc);
+			};
+			reader.readAsText(file);
+		});
 		$("#comboSearch").on("input", function () {
 			query = this.value || "";
 			refresh();
@@ -883,6 +1026,10 @@
 			buttons[i].classList.toggle("on", buttons[i].getAttribute("data-metric") === metric);
 		}
 		bind();
+		try {
+			var savedExposure = localStorage.getItem(EXPOSURE_KEY);
+			if (savedExposure) exposure = JSON.parse(savedExposure);
+		} catch (e3) {}
 		var open = false;
 		try {
 			var flag = localStorage.getItem(OPEN_KEY);
