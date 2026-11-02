@@ -2,6 +2,7 @@
 	var SEP = "\u0001";
 	var TARGETS_KEY = "annotool.comboTargets";
 	var EXPOSURE_KEY = "annotool.exposureDoc";
+	var EXPOSURE_BOUND_KEY = "annotool.exposureBound";
 	var LOCK_KEY = "annotool.comboLocks";
 	var VIEW_KEY = "annotool.comboView";
 	var METRIC_KEY = "annotool.comboMetric";
@@ -25,6 +26,7 @@
 	var exposureSig = "";
 	var exposureRates = {};
 	var sortBySize = false;
+	var pendingExposureClear = "";
 
 	function fmt(n) {
 		n = n || 0;
@@ -115,6 +117,29 @@
 		}
 	}
 
+	function clearExposurePlan() {
+		exposure = null;
+		exposureSig = "";
+		exposureRates = {};
+		pendingExposureClear = "";
+		try {
+			localStorage.removeItem(EXPOSURE_KEY);
+			localStorage.removeItem(EXPOSURE_BOUND_KEY);
+		} catch (e) {}
+		if (projectKey() !== "_") replaceTargets({});
+		paintExposureHint(null);
+	}
+
+	function flushPendingExposureClear() {
+		if (!pendingExposureClear || projectKey() === "_") return;
+		if (pendingExposureClear !== projectKey()) return;
+		replaceTargets({});
+		exposureRates = {};
+		exposureSig = "";
+		pendingExposureClear = "";
+		paintExposureHint(null);
+	}
+
 	function paintExposureHint(match) {
 		var el = document.getElementById("comboTargetHint");
 		if (!el) return;
@@ -160,13 +185,13 @@
 		}
 		exposureRates = rates;
 		replaceTargets(map);
+		try { localStorage.setItem(EXPOSURE_BOUND_KEY, projectKey()); } catch (e) {}
 		useHitsMetric();
 	}
 
 	function rememberExposure(doc) {
 		exposure = doc;
 		exposureSig = "";
-		try { localStorage.setItem(EXPOSURE_KEY, JSON.stringify(doc)); } catch (e) {}
 		applyExposureMatch();
 		refresh();
 	}
@@ -630,6 +655,7 @@
 	}
 
 	function refresh() {
+		flushPendingExposureClear();
 		applyExposureMatch();
 		if (!manualWatch) {
 			var follow = listSelection() || boxSelection();
@@ -1083,8 +1109,9 @@
 		}
 		bind();
 		try {
-			var savedExposure = localStorage.getItem(EXPOSURE_KEY);
-			if (savedExposure) exposure = JSON.parse(savedExposure);
+			pendingExposureClear = localStorage.getItem(EXPOSURE_BOUND_KEY) || "";
+			localStorage.removeItem(EXPOSURE_KEY);
+			localStorage.removeItem(EXPOSURE_BOUND_KEY);
 		} catch (e3) {}
 		var open = false;
 		try {
@@ -1103,6 +1130,7 @@
 
 	window.AnnoLive = {
 		refresh: refresh,
+		clearExposurePlan: clearExposurePlan,
 		openPanel: function () { setPanel(true); },
 		setCaptions: setCaptions,
 		toggleCaptions: toggleCaptions,

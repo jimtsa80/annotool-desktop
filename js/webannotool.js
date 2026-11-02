@@ -1255,6 +1255,7 @@ function loadAnnotations() {
             $("button#laterlist").click()
         }
         input.value = "";
+        if (window.AnnoLive && AnnoLive.clearExposurePlan) AnnoLive.clearExposurePlan();
         if (window.AnnoLive) AnnoLive.refresh();
         new Noty({ type: "success", theme: "mint", layout: "topRight", text: "μπήκαν " + ok + " json", timeout: 1600 }).show();
         if (!(brd && brd.renderer)) return;
