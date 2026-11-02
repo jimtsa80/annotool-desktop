@@ -254,6 +254,12 @@ function readPrefsFile(a) {
 		tpfltrdata()
 		
 		checkConnsChanges()
+		allAnnotations.images = {};
+		allAnnotations.imageNum = 0;
+		allAnnotations.currentImage = "";
+		try { localStorage.allAnnotations = JSON.stringify(allAnnotations); } catch (eSave) {}
+		if (window.AnnoLive && AnnoLive.clearExposurePlan) AnnoLive.clearExposurePlan();
+		if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
 		$('#loadfiles').css('opacity','1')
     };
 	b.readAsText(a);

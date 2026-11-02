@@ -117,6 +117,29 @@
 		}
 	}
 
+	function relatedProjectKeys() {
+		var keys = [], seen = {}, add = function (k) {
+			if (k && k !== "_" && !seen[k]) { seen[k] = true; keys.push(k); }
+		};
+		if (typeof prefs !== "undefined" && prefs) {
+			add(prefs.projectRoot);
+			add(prefs.projectName);
+			if (prefs.prefsFilename) add(String(prefs.prefsFilename).replace(/\.txt$/i, ""));
+		}
+		if (typeof allAnnotations !== "undefined" && allAnnotations) add(allAnnotations.project);
+		add(projectKey());
+		return keys;
+	}
+
+	function clearTargetsForKnownKeys() {
+		var all = loadJson(TARGETS_KEY);
+		var keys = relatedProjectKeys();
+		var i;
+		for (i = 0; i < keys.length; i++) delete all[keys[i]];
+		try { localStorage.setItem(TARGETS_KEY, JSON.stringify(all)); }
+		catch (e) {}
+	}
+
 	function clearExposurePlan() {
 		exposure = null;
 		exposureSig = "";
@@ -126,14 +149,13 @@
 			localStorage.removeItem(EXPOSURE_KEY);
 			localStorage.removeItem(EXPOSURE_BOUND_KEY);
 		} catch (e) {}
-		if (projectKey() !== "_") replaceTargets({});
+		clearTargetsForKnownKeys();
 		paintExposureHint(null);
 	}
 
 	function flushPendingExposureClear() {
 		if (!pendingExposureClear || projectKey() === "_") return;
-		if (pendingExposureClear !== projectKey()) return;
-		replaceTargets({});
+		clearTargetsForKnownKeys();
 		exposureRates = {};
 		exposureSig = "";
 		pendingExposureClear = "";
@@ -1109,7 +1131,7 @@
 		}
 		bind();
 		try {
-			pendingExposureClear = localStorage.getItem(EXPOSURE_BOUND_KEY) || "";
+			if (localStorage.getItem(EXPOSURE_BOUND_KEY)) pendingExposureClear = "1";
 			localStorage.removeItem(EXPOSURE_KEY);
 			localStorage.removeItem(EXPOSURE_BOUND_KEY);
 		} catch (e3) {}
