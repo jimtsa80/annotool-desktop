@@ -34,6 +34,20 @@
 		catch (e) { return String(n); }
 	}
 
+	function searchFold(value) {
+		return String(value || "").toLowerCase().replace(/[^a-z0-9\u0370-\u03ff]+/g, "");
+	}
+
+	function comboSearchMatches(brand, location, rawQuery) {
+		var q = (rawQuery || "").trim();
+		if (!q) return true;
+		var blob = (brand || "") + " " + (location || "");
+		if (blob.toLowerCase().indexOf(q.toLowerCase()) !== -1) return true;
+		var needle = searchFold(q);
+		if (!needle) return true;
+		return searchFold(blob).indexOf(needle) !== -1;
+	}
+
 	function projectKey() {
 		var name = "";
 		if (typeof prefs !== "undefined" && prefs && prefs.projectRoot) name = prefs.projectRoot;
@@ -473,9 +487,8 @@
 		el.classList.toggle("is-locked", held);
 		var pin = el.querySelector(".combo-pin");
 		if (pin && document.activeElement !== pin) pin.checked = held;
-		var q = query.trim().toLowerCase();
-		var blob = (row.brand + " " + row.location).toLowerCase();
-		var matchesQuery = !q || blob.indexOf(q) !== -1;
+		var q = query.trim();
+		var matchesQuery = comboSearchMatches(row.brand, row.location, q);
 		el.style.display = (held || matchesQuery) ? "" : "none";
 	}
 
@@ -545,7 +558,7 @@
 		if (menu) menu.classList.toggle("open", viewOpen);
 		if (!list) return;
 		var views = viewsForProject();
-		var q = viewQuery.trim().toLowerCase();
+		var q = viewQuery.trim();
 		var ordered = rows.slice().sort(function (a, b) {
 			var aHeld = views.indexOf(a.key) !== -1;
 			var bHeld = views.indexOf(b.key) !== -1;
@@ -571,8 +584,7 @@
 			var held = views.indexOf(row.key) !== -1;
 			if (pin && document.activeElement !== pin) pin.checked = held;
 			el.classList.toggle("is-on", held);
-			var blob = (row.brand + " " + row.location).toLowerCase();
-			el.style.display = (held || !q || blob.indexOf(q) !== -1) ? "" : "none";
+			el.style.display = (held || comboSearchMatches(row.brand, row.location, q)) ? "" : "none";
 		}
 		for (var key in viewEls) {
 			if (!viewEls.hasOwnProperty(key) || seen[key]) continue;
