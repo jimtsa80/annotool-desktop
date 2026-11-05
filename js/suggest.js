@@ -575,6 +575,15 @@
 	function openQuick(poly) {
 		quick = { poly: poly, step: "brand", group: "", brand: "", tpoint: "", hits: 1 };
 		typed = "";
+		var rows = freqBrands();
+		if (rows.length === 1) {
+			chooseBrand(rows[0].group, rows[0].brand);
+			var locs = freqLocs(rows[0].group, rows[0].brand);
+			if (locs.length === 1) {
+				quick.tpoint = locs[0].tpoint;
+				quick.hits = usualHits(rows[0].brand, locs[0].tpoint);
+			}
+		}
 		renderQuick();
 	}
 

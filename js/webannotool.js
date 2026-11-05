@@ -111,7 +111,7 @@ if (workspaceInput) workspaceInput.addEventListener("change", function(a) {
 });
 $( "#hits" ).change(function(a) {
     a = highlighted;
-    var b = $("#brands ul li.selected").attr('id'),   c = tpointText(),   d = $("#hits").val();
+    var b = resolveBrandConn(),   c = resolveTpoint(),   d = $("#hits").val();
     if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
     if ( b !== "" && c !== "" ) {
 		if( a.length==0 ){
@@ -130,12 +130,9 @@ $( "#hits" ).change(function(a) {
         dehighlightAllObj()
 		}
     }else{
-		new Noty({ type: 'error', theme: 'mint', layout: 'topRight',  text: 'δεν έχεις επιλέξει touchpoint',  timeout: 1000,  closeWith: ['click', 'button'],}).show();
+		new Noty({ type: 'error', theme: 'mint', layout: 'topRight',  text: soleBrandConn() ? 'δεν βρέθηκε location για αυτό το brand' : 'δεν έχεις επιλέξει touchpoint',  timeout: 1000,  closeWith: ['click', 'button'],}).show();
 	}
-    $("#hits" ).blur();
-    $("#brands ul li").removeClass('selected');
-	$("#tpoints ul").remove();
-    document.getElementById("hits").selectedIndex = -1
+    resetAfterHitsApplied();
 });
 	
 document.addEventListener("dragstart", function(a) {
@@ -409,12 +406,13 @@ function brandsInit() {
 				$("#brands li").removeClass('selected');
 				$(this).addClass('selected');
 				
-				fillTouchpoints( $("#brands li.selected").attr('id') );
+				fillTouchpoints( $("#brands li.brand.selected").attr('id') );
 				if (typeof applyTpointOrder === "function") applyTpointOrder();
 				tpointsInit();
 				$("#hits option:selected").prop("selected", false);
 			}
 	})
+	syncSoleBrand();
 }
 
 function tpointText(node) {
@@ -429,6 +427,69 @@ function tpointText(node) {
         if (prefs && prefs.tpoints && prefs.tpoints.indexOf(single) !== -1) return single;
     }
     return name;
+}
+
+function soleBrandConn() {
+    var items = $("#brands ul li ul li.brand");
+    if (items.length !== 1) return "";
+    return items.first().attr("id") || "";
+}
+
+function soleLocationName(conn) {
+    if (!conn || !prefs || !prefs.conns || !prefs.conns[conn]) return "";
+    var tps = prefs.conns[conn].tpoints;
+    if (!tps || tps.length !== 1) return "";
+    return $.trim(tps[0] || "");
+}
+
+function resolveBrandConn() {
+    var b = $("#brands ul li.brand.selected").attr("id");
+    if (b) return b;
+    return soleBrandConn();
+}
+
+function resolveTpoint() {
+    var sel = tpointText();
+    if (sel) return sel;
+    var conn = resolveBrandConn();
+    if (!conn) return "";
+    var sole = soleLocationName(conn);
+    if (sole) return sole;
+    if (soleBrandConn()) {
+        var picked = $("#tpoints ul li.selected").first();
+        if (picked.length) return $.trim(picked.text() || "");
+        var first = $("#tpoints ul li").first();
+        if (first.length) return $.trim(first.text() || "");
+    }
+    return "";
+}
+
+function syncSoleBrand() {
+    var id = soleBrandConn();
+    if (!id) return;
+    var el = $("#brands ul li ul li.brand").first();
+    if (!$("#brands ul li.brand.selected").length) {
+        $("#brands li").removeClass("selected");
+        el.addClass("selected");
+        fillTouchpoints(id);
+        if (typeof applyTpointOrder === "function") applyTpointOrder();
+        tpointsInit();
+    }
+}
+
+function resetAfterHitsApplied() {
+    $("#hits").blur();
+    $("#brands ul li").removeClass("selected");
+    document.getElementById("hits").selectedIndex = -1;
+    var sole = soleBrandConn();
+    if (sole) {
+        $("#brands ul li ul li.brand").first().addClass("selected");
+        fillTouchpoints(sole);
+        if (typeof applyTpointOrder === "function") applyTpointOrder();
+        tpointsInit();
+    } else {
+        $("#tpoints ul").remove();
+    }
 }
 
 function tpointsInit() {
@@ -582,7 +643,7 @@ function fillTouchpoints(conn) {
 				.text(d)
 			); 
         }
-        1 == $('#tpoints li').length && ( $('#tpoints').selectedIndex = 0 )
+        1 == $('#tpoints ul li').length && $('#tpoints ul li:first').addClass('selected');
     } else {
 		$('#tpoints li').length = 0
 	}

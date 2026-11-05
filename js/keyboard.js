@@ -259,8 +259,8 @@ $(window).bind('mousewheel', function(e){
 		if ( isKeyPressed(e)==0 ) {
 			if (e.originalEvent.wheelDelta > 0 && document.getElementById("hits").value < 15) {
 				a = highlighted;
-				var b = $("#brands ul li.selected").attr('id'),
-					c = tpointText(),
+				var b = typeof resolveBrandConn === "function" ? resolveBrandConn() : $("#brands ul li.brand.selected").attr('id'),
+					c = typeof resolveTpoint === "function" ? resolveTpoint() : tpointText(),
 					d = $("#hits").val();
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
@@ -277,8 +277,8 @@ $(window).bind('mousewheel', function(e){
 			}
 			else if(e.originalEvent.wheelDelta < 0 && document.getElementById("hits").value > 1 ) {
 				a = highlighted;
-				var b = $("#brands ul li.selected").attr('id'),
-					c = tpointText(),
+				var b = typeof resolveBrandConn === "function" ? resolveBrandConn() : $("#brands ul li.brand.selected").attr('id'),
+					c = typeof resolveTpoint === "function" ? resolveTpoint() : tpointText(),
 					d = document.getElementById("hits").value;
 				if ("" == d) return alert("Please select again the hits number."), document.getElementById("hits").selectedIndex = -1, !1;
 				if ("" != b && "" != c) {
