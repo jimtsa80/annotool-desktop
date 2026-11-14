@@ -1,6 +1,7 @@
 (function () {
 	var LIVE_FILE = "annotool_live.json";
 	var PRED_FILE = "annotool_predictions.json";
+	var STATUS_FILE = "live_trainer_status.json";
 	var DB_NAME = "annotool-livesync";
 	var DB_STORE = "kv";
 	var DEBOUNCE_MS = 2500;
@@ -14,11 +15,15 @@
 	var pollTimer = null;
 	var followTimer = null;
 	var chain = Promise.resolve();
+	var pollChain = Promise.resolve();
 	var flushing = false;
 	var lastBody = "";
 	var predictions = null;
 	var predText = "";
 	var predWarned = "";
+	var statusText = null;
+	var trainerDoc = null;
+	var trainerBad = false;
 	var dismiss = false;
 	var shown = [];
 	var reviewed = [];
@@ -79,10 +84,257 @@
 		if (window.Noty) new Noty({ type: "warning", theme: "mint", layout: "topRight", text: text, timeout: 1800 }).show();
 	}
 
+	function toast(text) {
+		if (window.Noty) new Noty({ type: "success", theme: "mint", layout: "topRight", text: text, timeout: 2200 }).show();
+	}
+
+	function pick(obj, names) {
+		var i, v;
+		if (!obj) return null;
+		for (i = 0; i < names.length; i++) {
+			v = obj[names[i]];
+			if (v !== undefined && v !== null && v !== "") return v;
+		}
+		return null;
+	}
+
+	function asNumber(v) {
+		if (typeof v === "number" && isFinite(v)) return v;
+		if (typeof v === "string" && v.trim() !== "" && isFinite(Number(v))) return Number(v);
+		return null;
+	}
+
+	function asCount(v) {
+		if (typeof v === "number" && isFinite(v)) return v;
+		if (typeof v === "string" && v.trim() !== "" && isFinite(Number(v))) return Number(v);
+		if (Object.prototype.toString.call(v) === "[object Array]") return v.length;
+		if (v && typeof v === "object") return Object.keys(v).length;
+		return null;
+	}
+
+	function normState(v) {
+		var s = String(v == null ? "" : v).trim().toLowerCase();
+		if (s === "training" || s === "train") return "training";
+		if (s === "predicting" || s === "predict" || s === "inference") return "predicting";
+		if (s === "idle" || s === "ready" || s === "waiting" || s === "done" || s === "") return "idle";
+		if (s === "error" || s === "failed") return "error";
+		return s;
+	}
+
+	function shortTime(v) {
+		if (v == null || v === "") return "";
+		var d, n = asNumber(v);
+		if (typeof v === "number" || (typeof v === "string" && n != null && String(v).trim() === String(n))) {
+			d = new Date(n < 1e12 ? n * 1000 : n);
+		} else d = new Date(v);
+		if (isNaN(d.getTime())) return String(v).replace("T", " ").slice(0, 16);
+		var hh = d.getHours(), mm = d.getMinutes();
+		return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+	}
+
+	function formatMap(v) {
+		var n = asNumber(v);
+		if (n == null) return "";
+		return "mAP " + n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+	}
+
+	function predictionFrameCount(doc) {
+		var n = doc ? asCount(pick(doc, ["predicted_frames", "predictedFrames", "frame_count", "frameCount", "n_frames", "frames"])) : null;
+		if (n == null && doc && typeof doc.predictions === "number") n = doc.predictions;
+		if (n == null && predictions && predictions.images) n = Object.keys(predictions.images).length;
+		return n;
+	}
+
+	function numericStem(value) {
+		var s = stemOf(value);
+		if (!/^\d+$/.test(s)) return null;
+		return { n: parseInt(s, 10), raw: s };
+	}
+
+	function padFrame(n, width) {
+		var s = String(n);
+		while (s.length < width) s = "0" + s;
+		return s;
+	}
+
+	function rangeText(from, to) {
+		from = String(from);
+		to = String(to);
+		if (from === to) return "Προβλέψεις: frames " + from;
+		return "Προβλέψεις: frames " + from + "–" + to;
+	}
+
+	function predictionCoverage() {
+		var fromField = trainerDoc ? pick(trainerDoc, ["predicted_from", "predictedFrom"]) : null;
+		var toField = trainerDoc ? pick(trainerDoc, ["predicted_to", "predictedTo"]) : null;
+		var images, key, img, label, stem, num, width, min, max, names, i;
+		if (fromField != null && toField != null) {
+			return { from: String(fromField), to: String(toField), text: rangeText(fromField, toField), end: numericStem(toField) };
+		}
+		if (!predictions || !predictions.images) return null;
+		images = predictions.images;
+		width = 0;
+		min = null;
+		max = null;
+		names = [];
+		for (key in images) {
+			if (!Object.prototype.hasOwnProperty.call(images, key) || !images[key]) continue;
+			img = images[key];
+			label = img.imageName || key;
+			stem = stemOf(label);
+			names.push(stem);
+			num = numericStem(stem);
+			if (!num) continue;
+			if (num.raw.length > width) width = num.raw.length;
+			if (!min || num.n < min.n) min = num;
+			if (!max || num.n > max.n) max = num;
+		}
+		if (min && max) {
+			return {
+				from: padFrame(min.n, width),
+				to: padFrame(max.n, width),
+				text: rangeText(padFrame(min.n, width), padFrame(max.n, width)),
+				end: max
+			};
+		}
+		if (!names.length) return null;
+		names.sort();
+		return { from: names[0], to: names[names.length - 1], text: rangeText(names[0], names[names.length - 1]), end: null };
+	}
+
+	function trainerPhrase(doc) {
+		var state = normState(pick(doc, ["state", "status"]));
+		var raw = pick(doc, ["state", "status"]);
+		var cycle = pick(doc, ["cycle", "cycle_index", "cycleIndex"]);
+		var count = predictionFrameCount(doc);
+		if (state === "training") return "Εκπαίδευση…" + (cycle != null ? " κύκλος " + cycle : "");
+		if (state === "predicting") return "Προβλέψεις…";
+		if (state === "error") return "σφάλμα";
+		if (state === "idle" && count != null) return "Προβλέψεις έτοιμες: " + count + " frames";
+		if (cycle != null && state === "idle") return "κύκλος " + cycle;
+		if (raw != null && state !== "idle") return String(raw);
+		return doc ? "αναμονή" : "";
+	}
+
+	function trainerProgress(doc) {
+		var since = asNumber(pick(doc, ["reviewed_since_last_cycle", "reviewedSinceLastCycle", "reviewed_since", "reviewedSince", "since_last_cycle", "new_reviewed"]));
+		var reviewed = asNumber(pick(doc, ["reviewed", "reviewed_count", "reviewedCount", "n_reviewed"]));
+		var atLast = asNumber(pick(doc, ["reviewed_at_last_cycle", "reviewedAtLastCycle", "last_cycle_reviewed"]));
+		var threshold = asNumber(pick(doc, ["threshold", "cycle_threshold", "cycleThreshold", "review_threshold", "next_threshold", "reviews_per_cycle"]));
+		if (since == null && reviewed != null && atLast != null) since = Math.max(0, reviewed - atLast);
+		if (since == null || threshold == null) return "";
+		return since + "/" + threshold;
+	}
+
+	function trainerError(doc) {
+		var err = pick(doc, ["last_error", "lastError", "error"]);
+		if (err == null) return "";
+		if (typeof err === "object") {
+			err = err.message || err.msg || "";
+		}
+		err = String(err).trim();
+		if (!err || err === "null" || err === "none") return "";
+		return err;
+	}
+
+	function setText(id, text) {
+		var el = document.getElementById(id);
+		if (!el) return;
+		el.textContent = text || "";
+		el.hidden = !text;
+	}
+
+	function hideCoverage() {
+		var el = document.getElementById("liveTrainer");
+		var badge = document.getElementById("framePredict");
+		if (el) el.hidden = true;
+		if (badge) badge.hidden = true;
+	}
+
+	function frameBadge() {
+		var el = document.getElementById("framePredict");
+		if (el) return el;
+		var box = document.getElementById("box");
+		if (!box) return null;
+		el = document.createElement("div");
+		el.id = "framePredict";
+		el.hidden = true;
+		box.appendChild(el);
+		return el;
+	}
+
+	function paintFramePredict() {
+		var badge = frameBadge();
+		var name, hit, cover, cur, endN;
+		if (!badge) return;
+		if (!connected || !predictions) {
+			badge.hidden = true;
+			badge.textContent = "";
+			return;
+		}
+		name = (typeof imName !== "undefined" && imName) ? imName : "";
+		if (!name) {
+			badge.hidden = true;
+			return;
+		}
+		hit = !!findFrame(predictions, name);
+		badge.hidden = false;
+		badge.className = "";
+		if (hit) {
+			badge.className = "has";
+			badge.textContent = "πρόβλεψη";
+			return;
+		}
+		cover = predictionCoverage();
+		cur = numericStem(name);
+		endN = cover && cover.end ? cover.end.n : null;
+		if (cur && endN != null && cur.n > endN) {
+			badge.className = "ahead";
+			badge.textContent = "μπροστά από το μοντέλο";
+			return;
+		}
+		badge.className = "miss";
+		badge.textContent = "χωρίς πρόβλεψη";
+	}
+
+	function paintTrainer() {
+		var root = document.getElementById("liveTrainer");
+		var phrase, cover, prog, map, when, err, reviewed, classes, bits, any;
+		if (!root) return;
+		if (!connected) {
+			root.hidden = true;
+			return;
+		}
+		phrase = trainerDoc && !trainerBad ? trainerPhrase(trainerDoc) : "";
+		cover = predictionCoverage();
+		prog = trainerDoc && !trainerBad ? trainerProgress(trainerDoc) : "";
+		map = trainerDoc && !trainerBad ? formatMap(pick(trainerDoc, ["last_map50", "lastMap50", "map50", "mAP50", "map_50"])) : "";
+		when = trainerDoc && !trainerBad ? shortTime(pick(trainerDoc, ["updated_at", "updatedAt", "timestamp", "time", "last_update", "finished_at"])) : "";
+		err = trainerBad ? "μη έγκυρη κατάσταση" : (trainerDoc ? trainerError(trainerDoc) : "");
+		setText("liveTrainerMain", phrase);
+		setText("liveTrainerRange", cover ? cover.text : "");
+		setText("liveTrainerProg", prog);
+		setText("liveTrainerMap", map);
+		setText("liveTrainerTime", when);
+		setText("liveTrainerErr", err);
+		any = phrase || (cover && cover.text) || prog || map || when || err;
+		root.hidden = !any;
+		bits = [];
+		if (trainerDoc && !trainerBad) {
+			reviewed = pick(trainerDoc, ["reviewed", "reviewed_count", "reviewedCount"]);
+			classes = asCount(pick(trainerDoc, ["classes", "class_count", "classCount", "n_classes"]));
+			if (reviewed != null) bits.push("reviewed " + reviewed);
+			if (classes != null) bits.push(classes + " κλάσεις");
+			if (err) bits.push(err);
+		}
+		root.title = bits.join(" · ");
+	}
+
 	function paint() {
 		var root = document.getElementById("liveSync");
 		var btn = document.getElementById("liveSyncBtn");
 		var state = document.getElementById("liveSyncState");
+		if (!connected) hideCoverage();
 		if (!root || !btn || !state) return;
 		if (!supported()) {
 			root.className = "unsupported";
@@ -269,6 +521,9 @@
 		connected = false;
 		clearTimeout(timer);
 		stopPoll();
+		statusText = null;
+		trainerDoc = null;
+		trainerBad = false;
 		paint();
 	}
 
@@ -578,14 +833,30 @@
 		return !!(poly && brd && brd.objects && brd.objects[poly.id]);
 	}
 
-	function poll() {
-		if (!connected || !dirHandle) return Promise.resolve();
-		return dirHandle.getFileHandle(PRED_FILE).then(function (file) {
+	function onAccessError(err) {
+		if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) {
+			connected = false;
+			stopPoll();
+			paint();
+		}
+	}
+
+	function readNamed(name) {
+		return dirHandle.getFileHandle(name).then(function (file) {
 			return file.getFile();
 		}).then(function (file) {
 			return readText(file);
-		}).then(function (text) {
-			if (text === predText) return;
+		});
+	}
+
+	function pollPredictions() {
+		return readNamed(PRED_FILE).then(function (text) {
+			var cover;
+			if (!connected) return;
+			if (text === predText) {
+				paintFramePredict();
+				return;
+			}
 			predText = text;
 			try { predictions = JSON.parse(text); }
 			catch (e) {
@@ -594,19 +865,74 @@
 					predWarned = text;
 					note("το αρχείο προβλέψεων δεν είναι έγκυρο json");
 				}
+				paintFramePredict();
+				paintTrainer();
 				return;
 			}
 			predWarned = "";
 			if (!shown.length) dismiss = false;
 			showForCurrent();
+			paintFramePredict();
+			paintTrainer();
+			cover = predictionCoverage();
+			toast(cover ? "νέες προβλέψεις: frames " + cover.from + (cover.from === cover.to ? "" : "–" + cover.to) : "νέες προβλέψεις");
 		}).catch(function (err) {
-			if (err && (err.name === "NotFoundError" || err.name === "TypeError")) return;
-			if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) {
-				connected = false;
-				stopPoll();
-				paint();
+			if (err && (err.name === "NotFoundError" || err.name === "TypeError")) {
+				if (predText) {
+					predText = "";
+					predictions = null;
+					paintFramePredict();
+					paintTrainer();
+				}
+				return;
 			}
+			onAccessError(err);
 		});
+	}
+
+	function pollStatus() {
+		return readNamed(STATUS_FILE).then(function (text) {
+			if (!connected) return;
+			if (text === statusText) return;
+			statusText = text;
+			if (!String(text || "").trim()) {
+				trainerDoc = null;
+				trainerBad = false;
+				paintTrainer();
+				return;
+			}
+			try {
+				trainerDoc = JSON.parse(text);
+				trainerBad = !trainerDoc || typeof trainerDoc !== "object";
+				if (trainerBad) trainerDoc = null;
+			} catch (e) {
+				trainerDoc = null;
+				trainerBad = true;
+			}
+			paintTrainer();
+			paintFramePredict();
+		}).catch(function (err) {
+			if (err && (err.name === "NotFoundError" || err.name === "TypeError")) {
+				if (statusText !== null || trainerDoc || trainerBad) {
+					statusText = null;
+					trainerDoc = null;
+					trainerBad = false;
+					paintTrainer();
+				}
+				return;
+			}
+			onAccessError(err);
+		});
+	}
+
+	function poll() {
+		if (!connected || !dirHandle) return Promise.resolve();
+		var run = function () {
+			if (!connected || !dirHandle) return;
+			return Promise.all([pollPredictions(), pollStatus()]);
+		};
+		pollChain = pollChain.then(run, run);
+		return pollChain;
 	}
 
 	function startPoll() {
@@ -629,7 +955,11 @@
 			clearUi();
 		}
 		if (typeof imName !== "undefined" && imName) removeReviewed(imName);
-		poll().then(showForCurrent);
+		paintFramePredict();
+		poll().then(function () {
+			showForCurrent();
+			paintFramePredict();
+		});
 		scheduleChange();
 	}
 
@@ -703,6 +1033,7 @@
 		shown = [];
 		clearUi();
 		showForCurrent();
+		paintFramePredict();
 	}
 
 	function editableTarget(el) {

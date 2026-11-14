@@ -541,6 +541,47 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	white-space: nowrap;
 }
 #liveSync.unsupported #liveSyncState { max-width: 280px; }
+#liveTrainer {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 560px;
+	margin-left: 2px;
+	padding-left: 8px;
+	border-left: 1px solid rgba(255, 255, 255, 0.22);
+	color: #d5e4ee;
+	font-size: 11px;
+	font-weight: 650;
+	line-height: 16px;
+	white-space: nowrap;
+	overflow: hidden;
+	vertical-align: middle;
+}
+#liveTrainer[hidden] { display: none !important; }
+#liveTrainerMain { color: #fefefe; }
+#liveTrainerErr {
+	color: #ff8d86;
+	max-width: 160px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+#framePredict {
+	position: absolute;
+	z-index: 8;
+	top: 8px;
+	right: 8px;
+	pointer-events: none;
+	padding: 2px 8px;
+	border-radius: 8px;
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 18px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+#framePredict.has { background: #1f6b45; color: #e9fff3; }
+#framePredict.miss { background: #3d4a52; color: #d5e4ee; }
+#framePredict.ahead { background: #8a4b12; color: #fff4e5; }
+#framePredict[hidden] { display: none !important; }
 #mergeOnExportLabel {
 	display: inline-block;
 	margin: 0 8px 0 0;

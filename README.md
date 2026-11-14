@@ -85,6 +85,26 @@ When the annotator lands on a frame that has no boxes yet, each predicted annota
 
 A pre-merged prediction (one row whose `hits` is already the count) is one box with that hits value. For per-instance suggestions, write one annotation per logo (`--no-dedupe-brand-tpoint`). See `examples/annotool_predictions.json`.
 
+The open frame shows whether that file covers it: **πρόβλεψη**, **χωρίς πρόβλεψη**, or **μπροστά από το μοντέλο** when its number is past the covered range. A short toast appears when the predictions file changes. The covered span is shown as `Προβλέψεις: frames 03250–03400`, from the image keys, or from `predicted_from` / `predicted_to` on the trainer status when those are set.
+
+## Trainer status (`live_trainer_status.json`)
+
+Optional file in the same folder, written by the trainer. While **Ζωντανά** is connected the tool reads it every couple of seconds. If the file is missing, this part of the indicator stays empty. Unknown fields are ignored. Missing ones are skipped.
+
+| Field | Meaning |
+| --- | --- |
+| `state` | `idle`, `training`, or `predicting` |
+| `cycle` | Training cycle |
+| `reviewed` | Reviewed frames the trainer has counted |
+| `reviewed_since_last_cycle` and `threshold` | Progress toward the next cycle, shown as `40/80` when both are present |
+| `classes` | Class count (or a list) |
+| `last_map50` | Last mAP50 |
+| `updated_at` | When this status was written |
+| `last_error` | Shown in red. Empty or null hides it |
+| `predicted_from`, `predicted_to` | Frame span of the current predictions, if the trainer sets them |
+
+`Εκπαίδευση… κύκλος 2` is training. `Προβλέψεις έτοιμες: 150 frames` is idle after a predict, using `predicted_frames` or the number of images in the predictions file. See `examples/live_trainer_status.json`.
+
 ## Merge on export
 
 **συγχώνευση** (on by default) applies only to json / photos.csv / video.csv / news.csv.
