@@ -50,9 +50,10 @@ fileInput.addEventListener("change", function(a) {
     function putFolderOnFile() {
         if (!folderName) return;
         prefs.projectRoot = folderName;
-        var shown = (typeof activeCluster !== "undefined" && activeCluster && clusterGroups) ? activeCluster : folderName;
+        var shown = (clusterGroups && activeCluster && clusterGroups[activeCluster]) ? activeCluster : folderName;
         prefs.projectName = shown;
         allAnnotations.project = shown;
+        if (window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(shown);
         var nameEl = document.getElementById("projectName");
         if (!nameEl) return;
         if (nameEl.tagName === "INPUT") nameEl.value = shown;

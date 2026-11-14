@@ -287,6 +287,7 @@ function applyClusterFileName(name) {
 	if (prefs && prefs.projectRoot === undefined) prefs.projectRoot = prefs.projectName || "";
 	prefs.projectName = name;
 	allAnnotations.project = name;
+	if (window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(name);
 	var el = document.getElementById("projectName");
 	if (!el) return;
 	if (el.tagName === "INPUT") el.value = name;
@@ -659,6 +660,7 @@ function fillTouchpoints(conn) {
 
 
 function initJSXBoard() {
+    resetClusters();
     if ( 0 === $("#brands ul li").length || "" === prefs.prefsFilename){
 		return prefs = {
 			projectName: "",
@@ -2334,7 +2336,7 @@ var switchToSpan = function () {
 	if ( thisId == "projectName" ){ 
 		prefs.projectName = $('span#projectName').text()
 		allAnnotations.project = prefs.projectName;
-		
+		if (window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(prefs.projectName);
 	}
 	if ( thisId == "AnnotatorName" ){ 
 		prefs.AnnotatorName = $('span#AnnotatorName').text()

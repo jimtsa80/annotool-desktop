@@ -29,6 +29,8 @@ Same object `downloadAnnotations` stores, one box per logo instance (this is the
 
 A frame in `reviewed` with no entry in `images` was looked at and left empty: use it as a negative. A frame in neither `reviewed` nor `images` has not been finished: ignore it. Frames skipped with Shift+S are not reviewed.
 
+`reviewed` is kept per project (`annotool.reviewed:<project>` in this browser). Loading another frames folder sets `project` to that folder (or its cluster) immediately, writes the live file, and starts that folder's own reviewed list. The previous folder's names stay under its own key.
+
 Image keys and `imageName` are the filename stem (no extension). `width` and `height` are the tool canvas size, not necessarily the file's pixel size. `startPoint` is `[x, y]` and `diagPoint` is the opposite corner, in that canvas, origin at the top-left, y downward. `hits` on a live box is the hits on that one instance (1 when each logo was drawn separately).
 
 ```json
@@ -81,7 +83,7 @@ Same shape `predict_to_json.py` writes (a normal annotool JSON). Drop that scrip
 
 Each annotation is `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, in the canvas given by that image's `width` and `height`. `confidence` (or `conf`) is optional and is only shown on the suggestion. Image keys are filename stems, matching `imageName`.
 
-When the annotator lands on a frame that has no boxes yet, each predicted annotation is drawn as its own suggestion. Two rows with the same brand and location stay two boxes (`hits` kept from each row, usually 1). Nothing is written over a frame that already has annotations. **Όλες** accepts every suggestion, **Ναι** accepts one, **Όχι** or **Καμία** rejects. Drag a box, then accept it. Accepted boxes become normal annotations.
+When the annotator lands on a frame that has no boxes yet, each predicted annotation is drawn as its own suggestion. If the file has a `project` field and it is not the open folder, those boxes are ignored. Switching folders clears suggestions from the previous one. Two rows with the same brand and location stay two boxes (`hits` kept from each row, usually 1). Nothing is written over a frame that already has annotations. **Όλες** accepts every suggestion, **Ναι** accepts one, **Όχι** or **Καμία** rejects. Drag a box, then accept it. Accepted boxes become normal annotations.
 
 A pre-merged prediction (one row whose `hits` is already the count) is one box with that hits value. For per-instance suggestions, write one annotation per logo (`--no-dedupe-brand-tpoint`). See `examples/annotool_predictions.json`.
 

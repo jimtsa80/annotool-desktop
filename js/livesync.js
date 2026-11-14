@@ -29,12 +29,15 @@
 	var reviewed = [];
 	var reviewedProject = null;
 	var reviewedLoaded = false;
+	var skipLeave = false;
+	var clearingPredictions = false;
 
 	function supported() {
 		return !!(window.showDirectoryPicker && window.indexedDB);
 	}
 
 	function currentProject() {
+		if (reviewedLoaded && reviewedProject) return reviewedProject;
 		if (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.project) return allAnnotations.project;
 		if (typeof prefs !== "undefined" && prefs && prefs.projectName) return prefs.projectName;
 		return "";
@@ -48,13 +51,8 @@
 		try { localStorage.setItem(reviewKey(), JSON.stringify(reviewed)); } catch (e) {}
 	}
 
-	function ensureReviewed() {
-		var project = currentProject();
-		if (reviewedLoaded && project === reviewedProject) return;
-		if (reviewedLoaded) saveReviewed();
-		reviewedProject = project;
+	function loadReviewedList() {
 		reviewed = [];
-		reviewedLoaded = true;
 		try {
 			var raw = localStorage.getItem(reviewKey());
 			var arr = raw ? JSON.parse(raw) : [];
@@ -62,6 +60,38 @@
 				for (var i = 0; i < arr.length; i++) if (typeof arr[i] === "string" && arr[i]) reviewed.push(arr[i]);
 			}
 		} catch (e) {}
+	}
+
+	function ensureReviewed() {
+		var project = currentProject();
+		if (reviewedLoaded && project === reviewedProject) return;
+		if (reviewedLoaded) saveReviewed();
+		reviewedProject = project;
+		reviewedLoaded = true;
+		loadReviewedList();
+	}
+
+	function noteProject(name) {
+		name = String(name || "").replace(/^\s+|\s+$/g, "");
+		if (!name) return;
+		if (typeof allAnnotations !== "undefined" && allAnnotations) allAnnotations.project = name;
+		if (typeof prefs !== "undefined" && prefs) prefs.projectName = name;
+		var changed = !reviewedLoaded || reviewedProject !== name;
+		if (!changed) {
+			if (connected) flush(true);
+			return;
+		}
+		if (reviewedLoaded) saveReviewed();
+		reviewedProject = name;
+		reviewedLoaded = true;
+		loadReviewedList();
+		skipLeave = true;
+		window.__liveLeaving = "";
+		clearShownPredictions();
+		paintFramePredict();
+		paintTrainer();
+		if (predictionsApply()) showForCurrent();
+		if (connected) flush(true);
 	}
 
 	function addReviewed(name) {
@@ -141,7 +171,7 @@
 	function predictionFrameCount(doc) {
 		var n = doc ? asCount(pick(doc, ["predicted_frames", "predictedFrames", "frame_count", "frameCount", "n_frames", "frames"])) : null;
 		if (n == null && doc && typeof doc.predictions === "number") n = doc.predictions;
-		if (n == null && predictions && predictions.images) n = Object.keys(predictions.images).length;
+		if (n == null && predictionsApply() && predictions.images) n = Object.keys(predictions.images).length;
 		return n;
 	}
 
@@ -171,7 +201,7 @@
 		if (fromField != null && toField != null) {
 			return { from: String(fromField), to: String(toField), text: rangeText(fromField, toField), end: numericStem(toField) };
 		}
-		if (!predictions || !predictions.images) return null;
+		if (!predictionsApply() || !predictions.images) return null;
 		images = predictions.images;
 		width = 0;
 		min = null;
@@ -267,7 +297,7 @@
 		var badge = frameBadge();
 		var name, hit, cover, cur, endN;
 		if (!badge) return;
-		if (!connected || !predictions) {
+		if (!connected || !predictionsApply()) {
 			badge.hidden = true;
 			badge.textContent = "";
 			return;
@@ -442,6 +472,11 @@
 		catch (e) {}
 		flushing = false;
 		var payload = JSON.parse(JSON.stringify(allAnnotations));
+		var project = currentProject();
+		if (project) {
+			payload.project = project;
+			if (payload.prefs) payload.prefs.projectName = project;
+		}
 		if (typeof imName !== "undefined" && imName) payload.currentImage = imName;
 		payload.syncedAt = new Date().toISOString();
 		payload.currentImageIndex = (typeof imIndex === "number") ? imIndex : null;
@@ -499,6 +534,8 @@
 			var doc = JSON.parse(text);
 			if (!doc || !doc.reviewed || !doc.reviewed.length) return;
 			ensureReviewed();
+			var project = currentProject();
+			if (doc.project && project && String(doc.project) !== String(project)) return;
 			for (var i = 0; i < doc.reviewed.length; i++) {
 				if (typeof doc.reviewed[i] === "string" && reviewed.indexOf(doc.reviewed[i]) === -1) reviewed.push(doc.reviewed[i]);
 			}
@@ -629,9 +666,31 @@
 		return poly;
 	}
 
+	function predictionsApply() {
+		if (!predictions || typeof predictions !== "object") return false;
+		var tagged = predictions.project;
+		if (tagged == null || String(tagged) === "") return true;
+		var project = currentProject();
+		if (!project) return true;
+		return String(tagged) === String(project);
+	}
+
+	function clearShownPredictions() {
+		var copy = shown.slice(), i;
+		clearingPredictions = true;
+		shown = [];
+		dismiss = false;
+		clearUi();
+		for (i = 0; i < copy.length; i++) {
+			if (copy[i] && typeof removePolygon === "function") removePolygon(copy[i]);
+		}
+		clearingPredictions = false;
+		dismiss = false;
+	}
+
 	function showForCurrent() {
 		var frame, list, i, poly, n;
-		if (!connected || dismiss) return;
+		if (!connected || dismiss || !predictionsApply()) return;
 		if (typeof imName === "undefined" || !imName) return;
 		if (typeof brd === "undefined" || !brd || typeof createPolygon !== "function") return;
 		if (hasUserAnnotations()) return;
@@ -870,6 +929,12 @@
 				return;
 			}
 			predWarned = "";
+			if (!predictionsApply()) {
+				clearShownPredictions();
+				paintFramePredict();
+				paintTrainer();
+				return;
+			}
 			if (!shown.length) dismiss = false;
 			showForCurrent();
 			paintFramePredict();
@@ -948,6 +1013,10 @@
 
 	function arrived(left) {
 		ensureReviewed();
+		if (skipLeave) {
+			skipLeave = false;
+			left = "";
+		}
 		if (left && left !== imName) {
 			addReviewed(left);
 			dismiss = false;
@@ -1003,7 +1072,7 @@
 			var was = poly && poly._liveSuggest;
 			if (was) dropShown(poly);
 			var result = orig.apply(this, arguments);
-			if (was) {
+			if (was && !clearingPredictions) {
 				if (!shown.length) { dismiss = true; clearUi(); }
 				else renderUi();
 			}
@@ -1103,6 +1172,7 @@
 		onAutosave: function () { return flush(true); },
 		noteChange: scheduleChange,
 		pollNow: poll,
+		noteProject: noteProject,
 		resurface: resurface,
 		status: function () {
 			ensureReviewed();
