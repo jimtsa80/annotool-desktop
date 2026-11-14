@@ -331,18 +331,12 @@
 		}
 	}
 
-	function inExposureScope(name) {
-		if (typeof activeCluster === "undefined" || !activeCluster) return true;
-		if (typeof clusterGroups === "undefined" || !clusterGroups) return true;
-		return String(name || "").indexOf(activeCluster + "/") === 0;
-	}
-
 	function collect() {
 		var map = {};
 		var live = useLiveBoard();
 		var images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
 		for (var name in images) {
-			if (!images.hasOwnProperty(name) || !inExposureScope(name)) continue;
+			if (!images.hasOwnProperty(name)) continue;
 			if (live && name === imName) continue;
 			var anns = images[name].annotations || [];
 			for (var i = 0; i < anns.length; i++) {
