@@ -26,6 +26,7 @@ Same object `downloadAnnotations` stores, one box per logo instance (this is the
 | `currentImage` | Frame open right now (already part of the export). Filename stem, or `folder/stem` when several folders are open |
 | `currentImageIndex` | Index of that frame in the current folder |
 | `reviewed` | Frames the annotator has left with Next, Prev, S, or A. The open frame is not in this list |
+| `rejected` | Predicted boxes the annotator rejected or deleted, per frame. Not in the delivery download |
 
 A frame in `reviewed` with no entry in `images` was looked at and left empty: use it as a negative. A frame in neither `reviewed` nor `images` has not been finished: ignore it. Frames skipped with Shift+S are not reviewed.
 
@@ -71,11 +72,35 @@ Image keys and `imageName` are the filename stem (no extension). `width` and `he
   "Annotator": "ada",
   "syncedAt": "2026-11-14T17:20:00.000Z",
   "currentImageIndex": 1,
-  "reviewed": ["00012"]
+  "reviewed": ["00012"],
+  "rejected": {
+    "00012": [
+      {
+        "brand": "Nike",
+        "tpoint": "Board",
+        "x": 500,
+        "y": 80,
+        "width": 90,
+        "height": 40,
+        "confidence": 0.62
+      }
+    ]
+  }
 }
 ```
 
 The file is written with one `createWritable` / `close`, so a reader does not see a half-written body. If a parse fails, read it again.
+
+`rejected` is the hard-negative list, kept per project the same way as `reviewed` (`annotool.rejected:<project>` in this browser). It is not part of the delivery download. Each time the annotator presses **Όχι** or **Καμία**, or deletes a predicted box, that box is appended under its frame name:
+
+| Field | Meaning |
+| --- | --- |
+| `brand`, `tpoint` | The prediction's label |
+| `x`, `y` | Top-left of the box, canvas pixels, same space as `startPoint` (origin top-left, y downward) |
+| `width`, `height` | Box size in that same canvas |
+| `confidence` | The prediction's confidence, or `null` if it had none |
+
+Leaving a frame without rejecting does not add a row. Switching folders does not copy another project's rejections. The trainer can treat these boxes as hard negatives.
 
 ## Predictions file (`annotool_predictions.json`)
 
@@ -111,4 +136,4 @@ Optional file in the same folder, written by the trainer. While **Ζωντανά
 
 **συγχώνευση** (on by default) applies only to json / photos.csv / video.csv / news.csv.
 
-On a frame, rows with the same `brand` and `tpoint` become one annotation. The rectangle is the highest `confidence` instance. With no confidence, or a tie, the earliest box is kept. `hits` is the sum of the instances' hits, so three `hits: 1` boxes become `hits: 3`, and one older box that already stored `hits: 5` stays 5. The downloaded annotation has the usual keys only: `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, and `timestamp` when the kept box had one. `syncedAt`, `reviewed`, and `currentImageIndex` are left out of the download. The browser autosave keeps every instance.
+On a frame, rows with the same `brand` and `tpoint` become one annotation. The rectangle is the highest `confidence` instance. With no confidence, or a tie, the earliest box is kept. `hits` is the sum of the instances' hits, so three `hits: 1` boxes become `hits: 3`, and one older box that already stored `hits: 5` stays 5. The downloaded annotation has the usual keys only: `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, and `timestamp` when the kept box had one. `syncedAt`, `reviewed`, `rejected`, and `currentImageIndex` are left out of the download. The browser autosave keeps every instance.

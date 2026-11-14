@@ -75,6 +75,7 @@ function stripLiveMeta(doc) {
     if (!doc) return doc;
     delete doc.syncedAt;
     delete doc.reviewed;
+    delete doc.rejected;
     delete doc.currentImageIndex;
     return doc;
 }

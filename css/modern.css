@@ -643,6 +643,8 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+	max-width: calc(100% - 8px);
+	box-sizing: border-box;
 	padding: 2px 4px 2px 8px;
 	border-radius: 6px;
 	background: #f0b429;
@@ -653,6 +655,12 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	pointer-events: auto;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
+.liveChipText {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+.liveChip button { flex: 0 0 auto; }
 #clusterPick {
 	display: none;
 	width: 280px;

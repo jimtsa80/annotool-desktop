@@ -27,6 +27,7 @@
 	var dismiss = false;
 	var shown = [];
 	var reviewed = [];
+	var rejected = {};
 	var reviewedProject = null;
 	var reviewedLoaded = false;
 	var skipLeave = false;
@@ -51,6 +52,46 @@
 		try { localStorage.setItem(reviewKey(), JSON.stringify(reviewed)); } catch (e) {}
 	}
 
+	function rejectKey() {
+		return "annotool.rejected:" + (reviewedProject || "_");
+	}
+
+	function saveRejected() {
+		try { localStorage.setItem(rejectKey(), JSON.stringify(rejected)); } catch (e) {}
+	}
+
+	function loadRejected() {
+		rejected = {};
+		try {
+			var raw = localStorage.getItem(rejectKey());
+			var obj = raw ? JSON.parse(raw) : {};
+			if (obj && typeof obj === "object" && Object.prototype.toString.call(obj) !== "[object Array]") rejected = obj;
+		} catch (e) {}
+	}
+
+	function sameRejection(a, b) {
+		return a && b && a.brand === b.brand && a.tpoint === b.tpoint && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+	}
+
+	function mergeRejected(doc) {
+		var name, list, i, entry, have, j, changed = false;
+		if (!doc || !doc.rejected || typeof doc.rejected !== "object") return;
+		for (name in doc.rejected) {
+			if (!Object.prototype.hasOwnProperty.call(doc.rejected, name)) continue;
+			list = doc.rejected[name];
+			if (!list || !list.length) continue;
+			if (!rejected[name]) rejected[name] = [];
+			have = rejected[name];
+			for (i = 0; i < list.length; i++) {
+				entry = list[i];
+				if (!entry) continue;
+				for (j = 0; j < have.length; j++) if (sameRejection(have[j], entry)) break;
+				if (j === have.length) { have.push(entry); changed = true; }
+			}
+		}
+		if (changed) saveRejected();
+	}
+
 	function loadReviewedList() {
 		reviewed = [];
 		try {
@@ -65,10 +106,11 @@
 	function ensureReviewed() {
 		var project = currentProject();
 		if (reviewedLoaded && project === reviewedProject) return;
-		if (reviewedLoaded) saveReviewed();
+		if (reviewedLoaded) { saveReviewed(); saveRejected(); }
 		reviewedProject = project;
 		reviewedLoaded = true;
 		loadReviewedList();
+		loadRejected();
 	}
 
 	function noteProject(name) {
@@ -81,10 +123,11 @@
 			if (connected) flush(true);
 			return;
 		}
-		if (reviewedLoaded) saveReviewed();
+		if (reviewedLoaded) { saveReviewed(); saveRejected(); }
 		reviewedProject = name;
 		reviewedLoaded = true;
 		loadReviewedList();
+		loadRejected();
 		skipLeave = true;
 		window.__liveLeaving = "";
 		clearShownPredictions();
@@ -481,6 +524,7 @@
 		payload.syncedAt = new Date().toISOString();
 		payload.currentImageIndex = (typeof imIndex === "number") ? imIndex : null;
 		payload.reviewed = reviewed.slice();
+		payload.rejected = JSON.parse(JSON.stringify(rejected || {}));
 		return JSON.stringify(payload);
 	}
 
@@ -532,14 +576,17 @@
 			return readText(file);
 		}).then(function (text) {
 			var doc = JSON.parse(text);
-			if (!doc || !doc.reviewed || !doc.reviewed.length) return;
+			if (!doc) return;
 			ensureReviewed();
 			var project = currentProject();
 			if (doc.project && project && String(doc.project) !== String(project)) return;
-			for (var i = 0; i < doc.reviewed.length; i++) {
-				if (typeof doc.reviewed[i] === "string" && reviewed.indexOf(doc.reviewed[i]) === -1) reviewed.push(doc.reviewed[i]);
+			if (doc.reviewed && doc.reviewed.length) {
+				for (var i = 0; i < doc.reviewed.length; i++) {
+					if (typeof doc.reviewed[i] === "string" && reviewed.indexOf(doc.reviewed[i]) === -1) reviewed.push(doc.reviewed[i]);
+				}
+				saveReviewed();
 			}
-			saveReviewed();
+			mergeRejected(doc);
 		}).catch(function () {});
 	}
 
@@ -806,6 +853,35 @@
 		else renderUi();
 	}
 
+	function recordRejection(poly) {
+		var ann, sd, x1, y1, x2, y2, name, entry;
+		if (!poly) return;
+		ensureReviewed();
+		ann = poly.annotation || {};
+		try { sd = (typeof getPolyStartDiag === "function") ? getPolyStartDiag(poly) : null; }
+		catch (e) { sd = null; }
+		if (!sd || !sd.start || !sd.diag) return;
+		x1 = sd.start[0];
+		y1 = sd.start[1];
+		x2 = sd.diag[0];
+		y2 = sd.diag[1];
+		name = (typeof imName !== "undefined" && imName) ? imName : "";
+		if (!name) return;
+		entry = {
+			brand: ann.brand || "",
+			tpoint: ann.tpoint || "",
+			x: Math.min(x1, x2),
+			y: Math.min(y1, y2),
+			width: Math.abs(x2 - x1),
+			height: Math.abs(y2 - y1),
+			confidence: (typeof poly._liveConf === "number") ? poly._liveConf : null
+		};
+		if (!rejected[name]) rejected[name] = [];
+		rejected[name].push(entry);
+		saveRejected();
+		if (connected && !flushing) scheduleChange();
+	}
+
 	function rejectPoly(poly) {
 		if (!poly) return;
 		dropShown(poly);
@@ -859,27 +935,54 @@
 		return { left: Math.min(x1, x2), top: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
 	}
 
+	function visibleBoard(board) {
+		var r = board.getBoundingClientRect();
+		var left = Math.max(r.left, 0);
+		var top = Math.max(r.top, 0);
+		var right = Math.min(r.right, window.innerWidth || r.right);
+		var bottom = Math.min(r.bottom, window.innerHeight || r.bottom);
+		if (right < left) right = left;
+		if (bottom < top) bottom = top;
+		return { left: left - r.left, top: top - r.top, right: right - r.left, bottom: bottom - r.top };
+	}
+
 	function placeChips() {
 		var board = document.getElementById("box");
 		var chips = document.getElementById("livePredictChips");
-		var nodes, i, poly, rect, node, left, top;
+		var bar, nodes, i, poly, rect, node, text, cw, ch, gap, margin, view, left, top, barW, barH;
 		if (!board || !chips) return;
+		view = visibleBoard(board);
+		margin = 4;
+		gap = 6;
+		bar = document.getElementById("livePredictBar");
+		barW = bar ? bar.offsetWidth : 0;
+		barH = bar ? bar.offsetHeight : 0;
 		nodes = chips.children;
 		for (i = 0; i < nodes.length; i++) {
 			node = nodes[i];
 			poly = polyById(node.getAttribute("data-id"));
 			if (!poly) continue;
-			var text = node.querySelector(".liveChipText");
+			text = node.querySelector(".liveChipText");
 			if (text) text.textContent = chipText(poly);
 			rect = boxScreen(poly);
 			if (!rect) continue;
-			left = rect.left + rect.width + 6;
+			cw = node.offsetWidth || 160;
+			ch = node.offsetHeight || 28;
+			left = rect.left + rect.width + gap;
+			if (left + cw > view.right - margin) left = rect.left - gap - cw;
+			if (left < view.left + margin) left = rect.left + gap;
+			if (left + cw > view.right - margin) left = view.right - margin - cw;
+			if (left < view.left + margin) left = view.left + margin;
 			top = rect.top;
-			if (left + 180 > board.clientWidth) left = Math.max(4, rect.left - 8);
-			if (top < 36) top = 36;
-			if (top > board.clientHeight - 28) top = Math.max(36, board.clientHeight - 28);
-			node.style.left = left + "px";
-			node.style.top = top + "px";
+			if (top + ch > view.bottom - margin) top = rect.top - gap - ch;
+			if (top < view.top + margin) top = rect.top + Math.max(0, rect.height - ch);
+			if (top + ch > view.bottom - margin) top = view.bottom - margin - ch;
+			if (top < view.top + margin) top = view.top + margin;
+			if (bar && left < 8 + barW && top < 8 + barH && left + cw > 8 && top + ch > 8) {
+				if (8 + barH + gap + ch <= view.bottom - margin) top = 8 + barH + gap;
+			}
+			node.style.left = Math.round(left) + "px";
+			node.style.top = Math.round(top) + "px";
 		}
 	}
 
@@ -1070,6 +1173,7 @@
 		var orig = removePolygon;
 		window.removePolygon = function (poly) {
 			var was = poly && poly._liveSuggest;
+			if (was && !clearingPredictions) recordRejection(poly);
 			if (was) dropShown(poly);
 			var result = orig.apply(this, arguments);
 			if (was && !clearingPredictions) {
