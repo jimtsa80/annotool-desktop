@@ -325,7 +325,7 @@
 		var list = brd.objectsList;
 		for (var i = 0; i < list.length; i++) {
 			var o = list[i];
-			if (!o || o.elType !== "polygon") continue;
+			if (!o || o.elType !== "polygon" || o._liveSuggest) continue;
 			if (o.visProp && o.visProp.visible === false) continue;
 			fn(o);
 		}

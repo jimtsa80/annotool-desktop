@@ -576,7 +576,7 @@ function imageHasBoxes() {
 	if (!brd || !brd.objectsList) return false;
 	for (i = 0; i < brd.objectsList.length; i++) {
 		poly = brd.objectsList[i];
-		if (!poly || !poly.getType || poly.getType() !== "polygon") continue;
+		if (!poly || !poly.getType || poly.getType() !== "polygon" || poly._liveSuggest) continue;
 		if (poly.getAttribute && poly.getAttribute("visible") === false) continue;
 		return true;
 	}
@@ -1037,7 +1037,7 @@ activeCluster = "",
     autosaveTimer = setInterval(function() {
         storeAnnotationImg();
         localStorage.allAnnotations = JSON.stringify(allAnnotations)
-		// alert("saved")
+        if (window.AnnoSync && AnnoSync.onAutosave) AnnoSync.onAutosave();
     }, autosaveInterval)
 }
 
@@ -1090,6 +1090,7 @@ function refitLoadedBoard() {
     placeBoardImage(url, size.w, size.h);
     loadAnnotationImg();
     if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
+    if (window.AnnoSync && AnnoSync.resurface) AnnoSync.resurface();
 }
 
 function fitBoard(naturalW, naturalH) {
@@ -1410,7 +1411,7 @@ function storeAnnotationImg() {
 	
 	for (var b = 0; b < brd.objectsList.length; b++){
 		var obj = brd.objectsList[b];
-		if ( obj.getType() == "polygon" && obj.getAttribute("visible") == !0) {
+		if ( obj.getType() == "polygon" && obj.getAttribute("visible") == !0 && !obj._liveSuggest) {
 			var d = {};
 			d.startPoint = getPolyStartDiag(obj).start;
 			d.diagPoint = getPolyStartDiag(obj).diag;
@@ -1477,7 +1478,7 @@ function imageHasCombo(name, combo) {
     if (name === imName && brd && brd.objectsList && !imReadFlag) {
         for (i = 0; i < brd.objectsList.length; i++) {
             a = brd.objectsList[i];
-            if (!a || a.elType !== "polygon" || (a.visProp && a.visProp.visible === !1) || !a.annotation) continue;
+            if (!a || a.elType !== "polygon" || a._liveSuggest || (a.visProp && a.visProp.visible === !1) || !a.annotation) continue;
             if ((a.annotation.brand || "").trim() === brand && (a.annotation.tpoint || "").trim() === location) return !0
         }
         return !1
@@ -1606,15 +1607,23 @@ function checkDoubleByPos(){
 }
 
 function checkDoubleByAnno(){
-	var a = brd.objects, b, pos=[];
+	var a = brd.objects, b, list = [], i, j, pi, pj, left, right;
 	for ( b in a ){
-		if ( a[b].getType()=="polygon" ){
-			if ( $.inArray( a[b].annotation.brand+"__"+a[b].annotation.tpoint, pos ) >-1 ){
-				new Noty({ type: 'error', theme: 'mint', layout: 'top',  
-					text: 'διπλότυπο στην προηγούμενη εικόνα : '+a[b].annotation.brand+" - "+a[b].annotation.tpoint,  timeout: 3000,  closeWith: ['click', 'button'],}).show();
-					break
-			}else{
-				pos.push( a[b].annotation.brand+"__"+a[b].annotation.tpoint )
+		if ( !a[b] || a[b].getType() != "polygon" || a[b]._liveSuggest || !a[b].annotation ) continue;
+		if ( a[b].getAttribute && a[b].getAttribute("visible") == false ) continue;
+		list.push(a[b]);
+	}
+	for ( i = 0; i < list.length; i++ ){
+		for ( j = i + 1; j < list.length; j++ ){
+			left = list[i].annotation;
+			right = list[j].annotation;
+			if ( (left.brand || "") + "__" + (left.tpoint || "") !== (right.brand || "") + "__" + (right.tpoint || "") ) continue;
+			pi = getPolyStartDiag(list[i]);
+			pj = getPolyStartDiag(list[j]);
+			if ( Math.abs(pi.start[0] - pj.start[0]) < 2 && Math.abs(pi.start[1] - pj.start[1]) < 2 && Math.abs(pi.diag[0] - pj.diag[0]) < 2 && Math.abs(pi.diag[1] - pj.diag[1]) < 2 ){
+				new Noty({ type: 'error', theme: 'mint', layout: 'top',
+					text: 'διπλότυπο στην προηγούμενη εικόνα : '+left.brand+" - "+left.tpoint,  timeout: 3000,  closeWith: ['click', 'button'],}).show();
+				return;
 			}
 		}
 	}

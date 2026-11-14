@@ -571,7 +571,7 @@ function listCounts() {
 	if (typeof brd !== "undefined" && brd && brd.objectsList) {
 		for (i = 0; i < brd.objectsList.length; i++) {
 			obj = brd.objectsList[i];
-			if (obj && obj.getType && obj.getType() === "polygon") add(obj.annotation);
+			if (obj && obj.getType && obj.getType() === "polygon" && !obj._liveSuggest) add(obj.annotation);
 		}
 	}
 	return { brands: brands, locs: locs };

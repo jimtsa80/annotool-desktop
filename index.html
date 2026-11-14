@@ -22,7 +22,7 @@
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
 	<link rel="stylesheet" href="css/livehud.css?v=17">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=22">
+	<link rel="stylesheet" href="css/modern.css?v=23">
 	
 
 
@@ -71,6 +71,9 @@
 				<h4>Export : </h4>
 				<label for="scrloc"><input id="scrloc" type="checkbox" value="scrloc"> location ?</label>
 			</div>
+			<label id="mergeOnExportLabel" for="mergeOnExport" title="στην εξαγωγή, ίδια brand+location γίνονται ένα annotation και τα hits το πλήθος. Το ζωντανό αρχείο κρατάει κάθε κουτί.">
+				<input id="mergeOnExport" type="checkbox" checked> συγχώνευση
+			</label>
 			<div id="generationButtons" class="btn-group" role="group">
 				<button id="downloadAnn" type="button" class="btn btn-success btn-sm shadow" onclick="downloadAnnotations();">json</button>
 				<button id="generatePhotoCSV" type="button" class="btn btn-success btn-sm shadow" onclick="generatePhotoCSV();">photos.csv</button>
@@ -95,6 +98,11 @@
 			<label id="carryToggle" title="φέρνει τα κουτιά της εικόνας στην επόμενη, για να τα προσαρμόσεις">
 				<input id="carryBoxes" type="checkbox"> Μεταφορά
 			</label>
+			<span id="liveSync" title="γράφει annotool_live.json και διαβάζει annotool_predictions.json">
+				<button type="button" id="liveSyncBtn" title="σύνδεση φακέλου. Δεξί κλικ: άλλος φάκελος">Ζωντανά</button>
+				<i id="liveSyncDot" aria-hidden="true"></i>
+				<span id="liveSyncState">εκτός</span>
+			</span>
 			
 			<span id="resizefname">
 				<button id="lastButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadLastImg();">Τέλος</button>
@@ -380,12 +388,12 @@
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap.js"></script>
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap-pause.js"></script>
     <script type="text/javascript" src="js/libs/mousetrap/mousetrap-bind-dictionary.min.js"></script>	
-    <script type="text/javascript" src="js/webannotool.js?v=31"></script>
+    <script type="text/javascript" src="js/webannotool.js?v=32"></script>
 	<script type="text/javascript" src="js/keyboard.js?v=8"></script>
 	<script type="text/javascript" src="js/imports.js?v=11"></script>
-	<script type="text/javascript" src="js/exports.js?v=5"></script>
+	<script type="text/javascript" src="js/exports.js?v=6"></script>
 	<script type="text/javascript" src="js/filters.js?v=4"></script>
-	<script type="text/javascript" src="js/tools.js?v=8"></script>
+	<script type="text/javascript" src="js/tools.js?v=9"></script>
 	<script type="text/javascript" src="js/mydatatables.js"></script>
 	<script type="text/javascript" src="js/colors.js"></script>
 	<div id="comboPanel" aria-hidden="true">
@@ -410,8 +418,9 @@
 	</div>
 
 	<script type="text/javascript" src="js/compare.js"></script>
-	<script type="text/javascript" src="js/livehud.js?v=22"></script>
-	<script type="text/javascript" src="js/suggest.js?v=15"></script>
+	<script type="text/javascript" src="js/livehud.js?v=23"></script>
+	<script type="text/javascript" src="js/suggest.js?v=16"></script>
+	<script type="text/javascript" src="js/livesync.js?v=1"></script>
 	<script type="text/javascript" src="js/anno.js?v=2"></script>
 	<script>
 	(function () {
