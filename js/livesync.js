@@ -28,6 +28,9 @@
 	var shown = [];
 	var reviewed = [];
 	var rejected = {};
+	var modelChoice = "continue";
+	var modelStored = false;
+	var modelUiSig = "";
 	var reviewedProject = null;
 	var reviewedLoaded = false;
 	var skipLeave = false;
@@ -103,14 +106,82 @@
 		} catch (e) {}
 	}
 
+	function projectFamily() {
+		var groups = null, i, g;
+		if (typeof prefs !== "undefined" && prefs && prefs.groups && prefs.groups.length) groups = prefs.groups;
+		else if (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.prefs && allAnnotations.prefs.groups) groups = allAnnotations.prefs.groups;
+		if (groups) {
+			for (i = 0; i < groups.length; i++) {
+				g = groups[i];
+				if (g && String(g).replace(/^\s+|\s+$/g, "")) return String(g).replace(/^\s+|\s+$/g, "");
+			}
+		}
+		return currentProject() || "";
+	}
+
+	function modelKey() {
+		return "annotool.model:" + (reviewedProject || "_");
+	}
+
+	function resolvedChoice() {
+		var fam;
+		if (modelChoice.indexOf("from:") === 0) {
+			fam = modelChoice.slice(5).replace(/^\s+|\s+$/g, "");
+			return fam ? "from:" + fam : "continue";
+		}
+		return modelChoice === "new" ? "new" : "continue";
+	}
+
+	function resolvedFamily() {
+		var fam;
+		if (modelChoice.indexOf("from:") === 0) {
+			fam = modelChoice.slice(5).replace(/^\s+|\s+$/g, "");
+			if (fam) return fam;
+		}
+		return projectFamily();
+	}
+
+	function applyChoice(choice) {
+		choice = String(choice || "");
+		if (choice === "new" || choice === "continue" || choice.indexOf("from:") === 0) modelChoice = choice;
+		else modelChoice = "continue";
+	}
+
+	function saveModel() {
+		try {
+			localStorage.setItem(modelKey(), JSON.stringify({ modelChoice: resolvedChoice(), modelFamily: resolvedFamily() }));
+			modelStored = true;
+		} catch (e) {}
+	}
+
+	function loadModel() {
+		modelChoice = "continue";
+		modelStored = false;
+		modelUiSig = "";
+		try {
+			var raw = localStorage.getItem(modelKey());
+			if (!raw) return;
+			var obj = JSON.parse(raw);
+			modelStored = true;
+			if (obj && typeof obj.modelChoice === "string") applyChoice(obj.modelChoice);
+		} catch (e) {}
+	}
+
+	function absorbModel(doc) {
+		if (!doc || modelStored || typeof doc.modelChoice !== "string" || !doc.modelChoice) return;
+		applyChoice(doc.modelChoice);
+		saveModel();
+	}
+
 	function ensureReviewed() {
 		var project = currentProject();
 		if (reviewedLoaded && project === reviewedProject) return;
-		if (reviewedLoaded) { saveReviewed(); saveRejected(); }
+		if (reviewedLoaded) { saveReviewed(); saveRejected(); saveModel(); }
 		reviewedProject = project;
 		reviewedLoaded = true;
 		loadReviewedList();
 		loadRejected();
+		loadModel();
 	}
 
 	function noteProject(name) {
@@ -123,11 +194,12 @@
 			if (connected) flush(true);
 			return;
 		}
-		if (reviewedLoaded) { saveReviewed(); saveRejected(); }
+		if (reviewedLoaded) { saveReviewed(); saveRejected(); saveModel(); }
 		reviewedProject = name;
 		reviewedLoaded = true;
 		loadReviewedList();
 		loadRejected();
+		loadModel();
 		skipLeave = true;
 		window.__liveLeaving = "";
 		clearShownPredictions();
@@ -370,37 +442,165 @@
 		badge.textContent = "χωρίς πρόβλεψη";
 	}
 
+	function formatScore(v) {
+		var n = asNumber(v);
+		if (n == null) return "";
+		return n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+	}
+
+	function familiesOf(doc) {
+		var raw = doc ? pick(doc, ["families", "model_families", "modelFamilies"]) : null;
+		var out = [], i, item, name, seen = {};
+		if (typeof raw === "string") raw = raw.split(",");
+		if (!raw || Object.prototype.toString.call(raw) !== "[object Array]") return out;
+		for (i = 0; i < raw.length; i++) {
+			item = raw[i];
+			if (item && typeof item === "object") name = pick(item, ["family", "name", "model_family", "modelFamily"]);
+			else name = item;
+			name = String(name == null ? "" : name).replace(/^\s+|\s+$/g, "");
+			if (!name || seen[name]) continue;
+			seen[name] = true;
+			out.push(name);
+		}
+		return out;
+	}
+
+	function classMapRows(doc) {
+		var raw = doc ? pick(doc, ["per_class_map50", "perClassMap50", "per_class_map", "class_map50"]) : null;
+		var rows = [], i, item, name, score;
+		if (!raw) return rows;
+		if (Object.prototype.toString.call(raw) === "[object Array]") {
+			for (i = 0; i < raw.length; i++) {
+				item = raw[i];
+				if (item == null) continue;
+				if (typeof item !== "object") { rows.push({ name: String(item), score: null }); continue; }
+				name = pick(item, ["class", "name", "label", "cls"]);
+				score = asNumber(pick(item, ["map50", "map_50", "mAP50", "score", "ap"]));
+				if (name != null) rows.push({ name: String(name), score: score });
+			}
+			return rows;
+		}
+		if (typeof raw === "object") {
+			for (name in raw) {
+				if (!Object.prototype.hasOwnProperty.call(raw, name)) continue;
+				score = asNumber(raw[name]);
+				if (score == null && raw[name] && typeof raw[name] === "object") score = asNumber(pick(raw[name], ["map50", "map_50", "mAP50", "score", "ap"]));
+				rows.push({ name: name, score: score });
+			}
+		}
+		return rows;
+	}
+
+	function modelLine(doc) {
+		var family, mode;
+		if (!doc) return "";
+		family = pick(doc, ["model_family", "modelFamily", "family"]);
+		mode = pick(doc, ["model_mode", "modelMode", "mode"]);
+		if (family == null && mode == null) return "";
+		if (family != null && mode != null && String(mode) !== "") return "Μοντέλο: " + family + " (" + mode + ")";
+		if (family != null) return "Μοντέλο: " + family;
+		return "Μοντέλο: (" + mode + ")";
+	}
+
+	function classMapText(doc) {
+		var rows = classMapRows(doc), i, parts = [], score;
+		for (i = 0; i < rows.length; i++) {
+			score = formatScore(rows[i].score);
+			parts.push(score ? rows[i].name + " " + score : rows[i].name);
+		}
+		return parts.join(" · ");
+	}
+
+	function addOpt(sel, value, label) {
+		var opt = document.createElement("option");
+		opt.value = value;
+		opt.textContent = label;
+		sel.appendChild(opt);
+	}
+
+	function paintModelChoice(doc) {
+		var sel = document.getElementById("liveModelChoice");
+		var text = document.getElementById("liveModelFromText");
+		var fams, choice, fromName, useList, sig, want, i, busy;
+		if (!sel) return;
+		fams = (doc && !trainerBad) ? familiesOf(doc) : [];
+		choice = modelChoice;
+		fromName = choice.indexOf("from:") === 0 ? choice.slice(5).replace(/^\s+|\s+$/g, "") : "";
+		useList = fams.length > 0;
+		sig = (useList ? fams.join("\n") : "text");
+		busy = document.activeElement === sel || document.activeElement === text;
+		if (sig !== modelUiSig && !busy) {
+			modelUiSig = sig;
+			sel.innerHTML = "";
+			addOpt(sel, "continue", "συνέχεια");
+			addOpt(sel, "new", "νέο μοντέλο");
+			if (useList) {
+				for (i = 0; i < fams.length; i++) addOpt(sel, "from:" + fams[i], "συνέχεια από " + fams[i]);
+				if (fromName && fams.indexOf(fromName) === -1) addOpt(sel, "from:" + fromName, "συνέχεια από " + fromName);
+			} else addOpt(sel, "from", "συνέχεια από…");
+		}
+		want = useList ? (fromName ? "from:" + fromName : (choice === "new" ? "new" : "continue")) : (choice.indexOf("from:") === 0 ? "from" : (choice === "new" ? "new" : "continue"));
+		if (!busy && sel.value !== want) sel.value = want;
+		if (text) {
+			text.hidden = useList || sel.value !== "from";
+			if (!text.hidden && document.activeElement !== text && text.value !== fromName) text.value = fromName;
+		}
+	}
+
+	function onModelInput() {
+		var sel = document.getElementById("liveModelChoice");
+		var text = document.getElementById("liveModelFromText");
+		var v = sel ? sel.value : "continue";
+		var name = text ? String(text.value || "").replace(/^\s+|\s+$/g, "") : "";
+		if (v === "from") modelChoice = name ? "from:" + name : "from:";
+		else if (v.indexOf("from:") === 0) modelChoice = v;
+		else if (v === "new") modelChoice = "new";
+		else modelChoice = "continue";
+		saveModel();
+		if (text) text.hidden = v !== "from";
+		if (connected && !flushing) scheduleChange();
+	}
+
 	function paintTrainer() {
 		var root = document.getElementById("liveTrainer");
-		var phrase, cover, prog, map, when, err, reviewed, classes, bits, any;
+		var phrase, cover, prog, map, when, err, model, classesText, reviewedCount, classCount, bits, any, doc;
 		if (!root) return;
 		if (!connected) {
 			root.hidden = true;
 			return;
 		}
-		phrase = trainerDoc && !trainerBad ? trainerPhrase(trainerDoc) : "";
+		doc = trainerDoc && !trainerBad ? trainerDoc : null;
+		phrase = doc ? trainerPhrase(doc) : "";
 		cover = predictionCoverage();
-		prog = trainerDoc && !trainerBad ? trainerProgress(trainerDoc) : "";
-		map = trainerDoc && !trainerBad ? formatMap(pick(trainerDoc, ["last_map50", "lastMap50", "map50", "mAP50", "map_50"])) : "";
-		when = trainerDoc && !trainerBad ? shortTime(pick(trainerDoc, ["updated_at", "updatedAt", "timestamp", "time", "last_update", "finished_at"])) : "";
+		prog = doc ? trainerProgress(doc) : "";
+		map = doc ? formatMap(pick(doc, ["last_map50", "lastMap50", "map50", "mAP50", "map_50"])) : "";
+		when = doc ? shortTime(pick(doc, ["updated_at", "updatedAt", "timestamp", "time", "last_update", "finished_at"])) : "";
 		err = trainerBad ? "μη έγκυρη κατάσταση" : (trainerDoc ? trainerError(trainerDoc) : "");
+		model = modelLine(doc);
+		classesText = doc ? classMapText(doc) : "";
 		setText("liveTrainerMain", phrase);
 		setText("liveTrainerRange", cover ? cover.text : "");
 		setText("liveTrainerProg", prog);
 		setText("liveTrainerMap", map);
 		setText("liveTrainerTime", when);
+		setText("liveTrainerModel", model);
+		setText("liveTrainerPerClass", classesText);
 		setText("liveTrainerErr", err);
-		any = phrase || (cover && cover.text) || prog || map || when || err;
+		paintModelChoice(doc);
+		any = phrase || (cover && cover.text) || prog || map || when || err || model || classesText || connected;
 		root.hidden = !any;
 		bits = [];
-		if (trainerDoc && !trainerBad) {
-			reviewed = pick(trainerDoc, ["reviewed", "reviewed_count", "reviewedCount"]);
-			classes = asCount(pick(trainerDoc, ["classes", "class_count", "classCount", "n_classes"]));
-			if (reviewed != null) bits.push("reviewed " + reviewed);
-			if (classes != null) bits.push(classes + " κλάσεις");
+		if (doc) {
+			reviewedCount = pick(doc, ["reviewed", "reviewed_count", "reviewedCount"]);
+			classCount = asCount(pick(doc, ["classes", "class_count", "classCount", "n_classes"]));
+			if (reviewedCount != null) bits.push("reviewed " + reviewedCount);
+			if (classCount != null) bits.push(classCount + " κλάσεις");
+			if (classesText) bits.push(classesText);
 			if (err) bits.push(err);
 		}
 		root.title = bits.join(" · ");
+		var per = document.getElementById("liveTrainerPerClass");
+		if (per) per.title = classesText;
 	}
 
 	function paint() {
@@ -525,6 +725,8 @@
 		payload.currentImageIndex = (typeof imIndex === "number") ? imIndex : null;
 		payload.reviewed = reviewed.slice();
 		payload.rejected = JSON.parse(JSON.stringify(rejected || {}));
+		payload.modelFamily = resolvedFamily();
+		payload.modelChoice = resolvedChoice();
 		return JSON.stringify(payload);
 	}
 
@@ -587,6 +789,7 @@
 				saveReviewed();
 			}
 			mergeRejected(doc);
+			absorbModel(doc);
 		}).catch(function () {});
 	}
 
@@ -1284,6 +1487,16 @@
 			scheduleChange();
 		}, true);
 		if (hits) hits.addEventListener("change", scheduleChange);
+		var modelSel = document.getElementById("liveModelChoice");
+		var modelText = document.getElementById("liveModelFromText");
+		if (modelSel && !modelSel._syncBound) {
+			modelSel.addEventListener("change", onModelInput);
+			modelSel._syncBound = true;
+		}
+		if (modelText && !modelText._syncBound) {
+			modelText.addEventListener("input", onModelInput);
+			modelText._syncBound = true;
+		}
 	}
 
 	function restoreHandle() {

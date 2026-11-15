@@ -76,6 +76,8 @@ function stripLiveMeta(doc) {
     delete doc.syncedAt;
     delete doc.reviewed;
     delete doc.rejected;
+    delete doc.modelFamily;
+    delete doc.modelChoice;
     delete doc.currentImageIndex;
     return doc;
 }

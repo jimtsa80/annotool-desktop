@@ -27,6 +27,8 @@ Same object `downloadAnnotations` stores, one box per logo instance (this is the
 | `currentImageIndex` | Index of that frame in the current folder |
 | `reviewed` | Frames the annotator has left with Next, Prev, S, or A. The open frame is not in this list |
 | `rejected` | Predicted boxes the annotator rejected or deleted, per frame. Not in the delivery download |
+| `modelFamily` | Family the trainer should use. Defaults to the project's first group |
+| `modelChoice` | `continue`, `new`, or `from:<family>`. Not in the delivery download |
 
 A frame in `reviewed` with no entry in `images` was looked at and left empty: use it as a negative. A frame in neither `reviewed` nor `images` has not been finished: ignore it. Frames skipped with Shift+S are not reviewed.
 
@@ -73,6 +75,8 @@ Image keys and `imageName` are the filename stem (no extension). `width` and `he
   "syncedAt": "2026-11-14T17:20:00.000Z",
   "currentImageIndex": 1,
   "reviewed": ["00012"],
+  "modelFamily": "RLWC",
+  "modelChoice": "continue",
   "rejected": {
     "00012": [
       {
@@ -131,11 +135,16 @@ Optional file in the same folder, written by the trainer. While **Ζωντανά
 | `updated_at` | When this status was written |
 | `last_error` | Shown in red. Empty or null hides it |
 | `predicted_from`, `predicted_to` | Frame span of the current predictions, if the trainer sets them |
+| `model_family`, `model_mode` | Shown as `Μοντέλο: yolo11 (finetune)` |
+| `families` | Names offered in **συνέχεια από…**. Without this list the annotator types a name |
+| `per_class_map50` | Per-class scores, shown as a short list. An object of name → score, or a list of `{class, map50}` |
 
 `Εκπαίδευση… κύκλος 2` is training. `Προβλέψεις έτοιμες: 150 frames` is idle after a predict, using `predicted_frames` or the number of images in the predictions file. See `examples/live_trainer_status.json`.
+
+Next to the model line is **συνέχεια** / **νέο μοντέλο** / **συνέχεια από…**. The choice is written on `annotool_live.json` as `modelChoice` (`continue`, `new`, or `from:<family>`) and `modelFamily`. `modelFamily` is the project's first group, unless the choice is `from:<family>`, in which case it is that family. Both are remembered per project in this browser (`annotool.model:<project>`) and are left out of the delivery download.
 
 ## Merge on export
 
 **συγχώνευση** (on by default) applies only to json / photos.csv / video.csv / news.csv.
 
-On a frame, rows with the same `brand` and `tpoint` become one annotation. The rectangle is the highest `confidence` instance. With no confidence, or a tie, the earliest box is kept. `hits` is the sum of the instances' hits, so three `hits: 1` boxes become `hits: 3`, and one older box that already stored `hits: 5` stays 5. The downloaded annotation has the usual keys only: `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, and `timestamp` when the kept box had one. `syncedAt`, `reviewed`, `rejected`, and `currentImageIndex` are left out of the download. The browser autosave keeps every instance.
+On a frame, rows with the same `brand` and `tpoint` become one annotation. The rectangle is the highest `confidence` instance. With no confidence, or a tie, the earliest box is kept. `hits` is the sum of the instances' hits, so three `hits: 1` boxes become `hits: 3`, and one older box that already stored `hits: 5` stays 5. The downloaded annotation has the usual keys only: `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, and `timestamp` when the kept box had one. `syncedAt`, `reviewed`, `rejected`, `modelFamily`, `modelChoice`, and `currentImageIndex` are left out of the download. The browser autosave keeps every instance.

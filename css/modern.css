@@ -545,7 +545,7 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	max-width: 560px;
+	max-width: 980px;
 	margin-left: 2px;
 	padding-left: 8px;
 	border-left: 1px solid rgba(255, 255, 255, 0.22);
@@ -564,6 +564,36 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	max-width: 160px;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+#liveTrainerModel { color: #fefefe; }
+#liveModelChoiceLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0;
+	color: inherit;
+	font-weight: 700;
+}
+#liveModelChoice,
+#liveModelFromText {
+	height: 18px;
+	max-width: 150px;
+	padding: 0 2px;
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	border-radius: 3px;
+	background: #243842;
+	color: #fefefe;
+	font-size: 11px;
+	font-weight: 700;
+}
+#liveModelFromText { width: 96px; }
+#liveModelChoice[hidden],
+#liveModelFromText[hidden] { display: none !important; }
+#liveTrainerPerClass {
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: #c5d5df;
 }
 #framePredict {
 	position: absolute;

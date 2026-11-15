@@ -9,5 +9,12 @@
   "updated_at": "2026-11-14T18:05:00.000Z",
   "last_error": null,
   "predicted_from": "03250",
-  "predicted_to": "03400"
+  "predicted_to": "03400",
+  "model_family": "yolo11",
+  "model_mode": "finetune",
+  "families": ["yolo11", "yolo8"],
+  "per_class_map50": {
+    "Adidas|LED": 0.81,
+    "Nike|Board": 0.44
+  }
 }
