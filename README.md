@@ -133,13 +133,13 @@ Optional file in the same folder, written by the trainer. While **Ζωντανά
 | `classes` | Class count (or a list) |
 | `last_map50` | Last mAP50 |
 | `updated_at` | When this status was written |
-| `last_error` | Short Greek note in red. The original text is only on the tooltip. Empty or null hides it |
-
-`CUDA … out of memory` is shown as `Η κάρτα γραφικών γέμισε μνήμη – ο trainer θα ξαναδοκιμάσει αυτόματα`. `none of the reviewed names matched a jpg` and `frames folder not found` are shown as `Ο trainer δεν βρίσκει τις εικόνες του φακέλου`. Anything else is `Πρόβλημα στον trainer – δείτε το παράθυρο του trainer`. Once a later status has a higher `cycle`, or moves from that error into idle or predicting, the note is hidden even if `last_error` is still in the file.
+| `last_error` | Short Greek note in red. The original text is only on the tooltip. Empty or null hides it. `CUDA … out of memory` becomes `Η κάρτα γραφικών γέμισε μνήμη – ο trainer θα ξαναδοκιμάσει αυτόματα`. `none of the reviewed names matched a jpg` and `frames folder not found` become `Ο trainer δεν βρίσκει τις εικόνες του φακέλου`. Anything else is `Πρόβλημα στον trainer – δείτε το παράθυρο του trainer`. A later status with a higher `cycle`, or a move into idle or predicting, hides an error that is still in the file |
 | `predicted_from`, `predicted_to` | Frame span of the current predictions, if the trainer sets them |
 | `model_family`, `model_mode` | Shown as `Μοντέλο: yolo11 (finetune)` |
 | `families` | Names offered in **συνέχεια από…**. Without this list the annotator types a name |
-| `per_class_map50` | Per-class scores, shown as a short list. An object of name → score, or a list of `{class, map50}` |
+| `per_class_map50` | One score per brand and location. An object of name → score, a name → `{map50, instances, frames}`, or a list of `{class, map50}`. Optional `per_class_instances` and `per_class_frames` objects supply the counts when they are not on the score |
+
+The status line keeps the overall mAP only (`mAP 0.42`). The per-class list is the **mAP50** button next to **Συνδυασμοί**. It opens a panel titled `mAP50 ανά συνδυασμό`, with the same open, close, and drag behaviour as the combinations panel, and the choice is remembered (`annotool.mapPanelOpen`). Each row is one brand and location, the mAP50 to three decimals, and the training instances and frames when the status has them. Green is 0.98 or higher, amber is 0.80 up to 0.98, red is below 0.80. A combination with no score yet shows `—`. The header says which cycle and time the numbers come from. Rows are sorted by mAP50, highest first.
 
 `Εκπαίδευση… κύκλος 2` is training. `Προβλέψεις έτοιμες: 150 frames` is idle after a predict, using `predicted_frames` or the number of images in the predictions file. See `examples/live_trainer_status.json`.
 

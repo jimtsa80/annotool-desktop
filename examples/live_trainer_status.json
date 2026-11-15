@@ -14,7 +14,7 @@
   "model_mode": "finetune",
   "families": ["yolo11", "yolo8"],
   "per_class_map50": {
-    "Adidas|LED": 0.81,
+    "Adidas|LED": { "map50": 0.81, "instances": 24, "frames": 11 },
     "Nike|Board": 0.44
   }
 }

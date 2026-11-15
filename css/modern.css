@@ -324,10 +324,12 @@ html.theme-dark .toolbar .btn.disabled {
 	color: #fff;
 	background-color: #1f7eb0;
 }
-html.theme-dark #comboGlanceOpen {
+html.theme-dark #comboGlanceOpen,
+html.theme-dark #mapGlanceOpen {
 	background: #0f7a68;
 	color: #fff;
 }
+html.theme-dark #mapGlanceOpen.on { background: #1f6f4a; }
 html.theme-dark #imagestools #btn_foldcols.on {
 	background-color: #1f7eb0;
 	color: #fff;
@@ -590,12 +592,7 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 #liveModelFromText { width: 96px; }
 #liveModelChoice[hidden],
 #liveModelFromText[hidden] { display: none !important; }
-#liveTrainerPerClass {
-	max-width: 220px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	color: #c5d5df;
-}
+#liveTrainerPerClass { display: none !important; }
 #framePredict {
 	position: absolute;
 	z-index: 8;

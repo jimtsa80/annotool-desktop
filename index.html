@@ -20,9 +20,9 @@
 	<link rel="stylesheet" href="css/libs/buttons.dataTables.min.css" />
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Didact+Gothic&amp;subset=greek">
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
-	<link rel="stylesheet" href="css/livehud.css?v=17">
+	<link rel="stylesheet" href="css/livehud.css?v=18">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=28">
+	<link rel="stylesheet" href="css/modern.css?v=29">
 	
 
 
@@ -137,6 +137,7 @@
 	</div>
 	<div id="comboGlance">
 		<button type="button" id="comboGlanceOpen">Συνδυασμοί</button>
+		<button type="button" id="mapGlanceOpen" title="mAP50 ανά συνδυασμό">mAP50</button>
 		<div id="comboGlanceBody">
 			<div id="comboView">
 				<button type="button" id="comboViewBtn" title="ποιες εικόνες δείχνει το επόμενο">όλες οι εικόνες</button>
@@ -437,11 +438,21 @@
 		<div id="comboEmpty">Ακόμα δεν υπάρχει κανένας συνδυασμός.</div>
 		<div id="comboPanelFoot">Οι εικόνες διαλέγονται από το πλαίσιο πάνω: ψάξε, τσέκαρε όσους θες, ή πάτα όλες οι εικόνες. Ο στόχος μένει αποθηκευμένος σε αυτό το project.</div>
 	</div>
+	<div id="mapPanel" aria-hidden="true">
+		<div id="mapPanelHead">
+			<div id="mapPanelTitle">mAP50 ανά συνδυασμό <span id="mapPanelCount"></span></div>
+			<button type="button" id="mapPanelClose" title="κλείσιμο">×</button>
+		</div>
+		<div id="mapPanelWhen"></div>
+		<div id="mapList"></div>
+		<div id="mapEmpty">Ο trainer δεν έχει στείλει ακόμα mAP50.</div>
+		<div id="mapPanelFoot">πράσινο από 0.98 · κίτρινο 0.80–0.98 · κόκκινο κάτω από 0.80</div>
+	</div>
 
 	<script type="text/javascript" src="js/compare.js"></script>
 	<script type="text/javascript" src="js/livehud.js?v=23"></script>
 	<script type="text/javascript" src="js/suggest.js?v=16"></script>
-	<script type="text/javascript" src="js/livesync.js?v=7"></script>
+	<script type="text/javascript" src="js/livesync.js?v=8"></script>
 	<script type="text/javascript" src="js/anno.js?v=2"></script>
 	<script>
 	(function () {

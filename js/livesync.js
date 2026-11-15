@@ -33,6 +33,10 @@
 	var modelUiSig = "";
 	var shownError = null;
 	var dismissedError = null;
+	var mapDrag = null;
+	var mapSig = "";
+	var MAP_OPEN_KEY = "annotool.mapPanelOpen";
+	var MAP_POS_KEY = "annotool.mapPanelPos";
 	var reviewedProject = null;
 	var reviewedLoaded = false;
 	var skipLeave = false;
@@ -512,10 +516,238 @@
 		badge.textContent = "χωρίς πρόβλεψη";
 	}
 
-	function formatScore(v) {
+	function formatMapScore(v) {
 		var n = asNumber(v);
-		if (n == null) return "";
-		return n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+		if (n == null) return "—";
+		return n.toFixed(3);
+	}
+
+	function normClass(name) {
+		return String(name || "").replace(/\s*\|\s*/g, "|").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "").toLowerCase();
+	}
+
+	function prettyClass(name) {
+		var parts = String(name || "").split("|");
+		var i;
+		if (parts.length < 2) return String(name || "").replace(/^\s+|\s+$/g, "");
+		for (i = 0; i < parts.length; i++) parts[i] = parts[i].replace(/^\s+|\s+$/g, "");
+		return parts[0] + " | " + parts.slice(1).join("|");
+	}
+
+	function scoreBand(score) {
+		if (score == null) return "none";
+		if (score >= 0.98) return "good";
+		if (score >= 0.8) return "mid";
+		return "bad";
+	}
+
+	function projectClasses() {
+		var out = [], seen = {}, images, name, anns, i, a, list;
+		function add(brand, location) {
+			var key;
+			brand = String(brand || "").replace(/^\s+|\s+$/g, "");
+			location = String(location || "").replace(/^\s+|\s+$/g, "");
+			if (!brand || !location) return;
+			key = normClass(brand + "|" + location);
+			if (seen[key]) return;
+			seen[key] = true;
+			out.push({ label: brand + " | " + location, key: key });
+		}
+		images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
+		for (name in images) {
+			if (!Object.prototype.hasOwnProperty.call(images, name)) continue;
+			anns = images[name].annotations || [];
+			for (i = 0; i < anns.length; i++) add(anns[i].brand, anns[i].tpoint);
+		}
+		try {
+			if (typeof brd !== "undefined" && brd && brd.objectsList) {
+				list = brd.objectsList;
+				for (i = 0; i < list.length; i++) {
+					a = list[i] && list[i].annotation;
+					if (!a || list[i]._liveSuggest) continue;
+					add(a.brand, a.tpoint);
+				}
+			}
+		} catch (e) {}
+		return out;
+	}
+
+	function mapRows(doc) {
+		var scores = classMapRows(doc);
+		var byName = {}, i, row, known, key, hit, rows = [];
+		for (i = 0; i < scores.length; i++) byName[normClass(scores[i].name)] = scores[i];
+		known = projectClasses();
+		for (i = 0; i < known.length; i++) {
+			hit = byName[known[i].key];
+			rows.push({
+				label: known[i].label,
+				score: hit ? hit.score : null,
+				instances: hit ? hit.instances : null,
+				frames: hit ? hit.frames : null
+			});
+			byName[known[i].key] = null;
+		}
+		for (i = 0; i < scores.length; i++) {
+			key = normClass(scores[i].name);
+			if (!key || byName[key] === null) continue;
+			if (!byName[key]) continue;
+			rows.push({
+				label: prettyClass(scores[i].name),
+				score: scores[i].score,
+				instances: scores[i].instances,
+				frames: scores[i].frames
+			});
+			byName[key] = null;
+		}
+		rows.sort(function (a, b) {
+			if ((a.score == null) !== (b.score == null)) return a.score == null ? 1 : -1;
+			if (a.score != null && b.score != null && a.score !== b.score) return b.score - a.score;
+			return a.label.localeCompare(b.label);
+		});
+		return rows;
+	}
+
+	function countLabel(row) {
+		var bits = [];
+		if (row.instances != null) bits.push(row.instances + " δείγματα");
+		if (row.frames != null) bits.push(row.frames + " καρέ");
+		return bits.join(" · ");
+	}
+
+	function mapWhen(doc) {
+		var cycle, when, bits;
+		if (!doc) return "";
+		cycle = asNumber(pick(doc, ["cycle", "cycle_index", "cycleIndex"]));
+		when = shortTime(pick(doc, ["updated_at", "updatedAt", "timestamp", "time", "last_update", "finished_at"]));
+		bits = [];
+		if (cycle != null) bits.push("κύκλο " + cycle);
+		if (when) bits.push(when);
+		return bits.length ? ("τιμές από " + bits.join(", ")) : "";
+	}
+
+	function paintMapPanel(doc) {
+		var list = document.getElementById("mapList");
+		var empty = document.getElementById("mapEmpty");
+		var whenEl = document.getElementById("mapPanelWhen");
+		var countEl = document.getElementById("mapPanelCount");
+		var rows, when, sig, i, row, el, name, score, meta;
+		if (!list) return;
+		rows = mapRows(doc);
+		when = mapWhen(doc);
+		sig = (connected ? "1" : "0") + "\n" + when + "\n" + rows.map(function (r) {
+			return r.label + "\t" + r.score + "\t" + r.instances + "\t" + r.frames;
+		}).join("\n");
+		if (sig === mapSig && list.childNodes.length === rows.length) return;
+		mapSig = sig;
+		list.innerHTML = "";
+		for (i = 0; i < rows.length; i++) {
+			row = rows[i];
+			el = document.createElement("div");
+			el.className = "map-row is-" + scoreBand(row.score);
+			name = document.createElement("span");
+			name.className = "map-name";
+			name.textContent = row.label;
+			score = document.createElement("span");
+			score.className = "map-score";
+			score.textContent = formatMapScore(row.score);
+			meta = document.createElement("span");
+			meta.className = "map-meta";
+			meta.textContent = countLabel(row);
+			el.appendChild(name);
+			el.appendChild(score);
+			el.appendChild(meta);
+			list.appendChild(el);
+		}
+		if (countEl) countEl.textContent = rows.length ? String(rows.length) : "";
+		if (whenEl) whenEl.textContent = when;
+		if (empty) {
+			empty.style.display = rows.length ? "none" : "block";
+			empty.textContent = connected ? "Ο trainer δεν έχει στείλει ακόμα mAP50." : "Σύνδεσε τον φάκελο με το Ζωντανά για να έρθουν οι τιμές.";
+		}
+	}
+
+	function placeMapPanel() {
+		var panel = document.getElementById("mapPanel");
+		var saved = null, maxLeft, maxTop;
+		if (!panel) return;
+		try { saved = JSON.parse(localStorage.getItem(MAP_POS_KEY) || "null"); } catch (e) {}
+		if (saved && typeof saved.left === "number" && typeof saved.top === "number") {
+			maxLeft = Math.max(8, window.innerWidth - 80);
+			maxTop = Math.max(8, window.innerHeight - 80);
+			panel.style.left = Math.max(8, Math.min(saved.left, maxLeft)) + "px";
+			panel.style.top = Math.max(8, Math.min(saved.top, maxTop)) + "px";
+			panel.style.right = "auto";
+			return;
+		}
+		panel.style.top = "132px";
+		panel.style.left = "12px";
+		panel.style.right = "auto";
+	}
+
+	function setMapPanel(open) {
+		var panel = document.getElementById("mapPanel");
+		var btn = document.getElementById("mapGlanceOpen");
+		if (!panel) return;
+		if (open) placeMapPanel();
+		panel.classList.toggle("open", !!open);
+		panel.setAttribute("aria-hidden", open ? "false" : "true");
+		if (btn) btn.classList.toggle("on", !!open);
+		try { localStorage.setItem(MAP_OPEN_KEY, open ? "1" : "0"); } catch (e) {}
+		if (open) {
+			mapSig = "";
+			paintMapPanel(trainerDoc && !trainerBad ? trainerDoc : null);
+		}
+	}
+
+	function toggleMapPanel() {
+		var panel = document.getElementById("mapPanel");
+		setMapPanel(!(panel && panel.classList.contains("open")));
+	}
+
+	function initMapPanel() {
+		var open = false, flag, panel, head;
+		try {
+			flag = localStorage.getItem(MAP_OPEN_KEY);
+			if (flag === "1") open = true;
+			else if (flag === "0") open = false;
+			else open = window.innerWidth >= 1600;
+		} catch (e) {
+			open = window.innerWidth >= 1600;
+		}
+		setMapPanel(open);
+		panel = document.getElementById("mapPanel");
+		head = document.getElementById("mapPanelHead");
+		if (panel) {
+			panel.addEventListener("wheel", function (e) { e.stopPropagation(); }, { passive: true });
+		}
+		if (head) {
+			head.addEventListener("mousedown", function (e) {
+				var rect;
+				if (e.target && e.target.closest && e.target.closest("button, input")) return;
+				rect = panel.getBoundingClientRect();
+				mapDrag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+				e.preventDefault();
+			});
+		}
+		document.addEventListener("mousemove", function (e) {
+			var left, top;
+			if (!mapDrag || !panel) return;
+			left = Math.max(8, e.clientX - mapDrag.dx);
+			top = Math.max(8, e.clientY - mapDrag.dy);
+			panel.style.left = left + "px";
+			panel.style.top = top + "px";
+			panel.style.right = "auto";
+		});
+		document.addEventListener("mouseup", function () {
+			var rect;
+			if (!mapDrag || !panel) return;
+			mapDrag = null;
+			rect = panel.getBoundingClientRect();
+			try { localStorage.setItem(MAP_POS_KEY, JSON.stringify({ left: rect.left, top: rect.top })); } catch (e) {}
+		});
+		setInterval(function () {
+			if (panel && panel.classList.contains("open")) paintMapPanel(trainerDoc && !trainerBad ? trainerDoc : null);
+		}, 1000);
 	}
 
 	function familiesOf(doc) {
@@ -535,30 +767,73 @@
 		return out;
 	}
 
+	function classDetail(item) {
+		if (item == null || typeof item !== "object") return { score: asNumber(item), instances: null, frames: null };
+		return {
+			score: asNumber(pick(item, ["map50", "map_50", "mAP50", "score", "ap"])),
+			instances: asNumber(pick(item, ["instances", "instance_count", "n_instances", "count", "boxes", "n"])),
+			frames: asNumber(pick(item, ["frames", "n_frames", "frame_count", "images", "n_images"]))
+		};
+	}
+
 	function classMapRows(doc) {
 		var raw = doc ? pick(doc, ["per_class_map50", "perClassMap50", "per_class_map", "class_map50"]) : null;
-		var rows = [], i, item, name, score;
+		var rows = [], i, item, name, detail;
 		if (!raw) return rows;
 		if (Object.prototype.toString.call(raw) === "[object Array]") {
 			for (i = 0; i < raw.length; i++) {
 				item = raw[i];
 				if (item == null) continue;
-				if (typeof item !== "object") { rows.push({ name: String(item), score: null }); continue; }
+				if (typeof item !== "object") { rows.push({ name: String(item), score: null, instances: null, frames: null }); continue; }
 				name = pick(item, ["class", "name", "label", "cls"]);
-				score = asNumber(pick(item, ["map50", "map_50", "mAP50", "score", "ap"]));
-				if (name != null) rows.push({ name: String(name), score: score });
+				detail = classDetail(item);
+				if (name != null) rows.push({ name: String(name), score: detail.score, instances: detail.instances, frames: detail.frames });
 			}
-			return rows;
-		}
-		if (typeof raw === "object") {
+		} else if (typeof raw === "object") {
 			for (name in raw) {
 				if (!Object.prototype.hasOwnProperty.call(raw, name)) continue;
-				score = asNumber(raw[name]);
-				if (score == null && raw[name] && typeof raw[name] === "object") score = asNumber(pick(raw[name], ["map50", "map_50", "mAP50", "score", "ap"]));
-				rows.push({ name: name, score: score });
+				detail = classDetail(raw[name]);
+				rows.push({ name: name, score: detail.score, instances: detail.instances, frames: detail.frames });
 			}
 		}
+		fillParallelCounts(doc, rows);
 		return rows;
+	}
+
+	function lookupCount(table, name) {
+		var want, k, n;
+		if (!table || typeof table !== "object") return null;
+		if (table[name] != null && typeof table[name] !== "object") {
+			n = asNumber(table[name]);
+			if (n != null) return n;
+		}
+		want = normClass(name);
+		for (k in table) {
+			if (!Object.prototype.hasOwnProperty.call(table, k) || normClass(k) !== want) continue;
+			n = asNumber(table[k]);
+			if (n == null && table[k] && typeof table[k] === "object") n = asNumber(pick(table[k], ["instances", "count", "n", "frames", "n_frames"]));
+			return n;
+		}
+		return null;
+	}
+
+	function fillParallelCounts(doc, rows) {
+		var inst = doc ? pick(doc, ["per_class_instances", "perClassInstances", "class_instances"]) : null;
+		var frames = doc ? pick(doc, ["per_class_frames", "perClassFrames", "class_frames"]) : null;
+		var i, n;
+		if (Object.prototype.toString.call(inst) !== "[object Object]") inst = null;
+		if (Object.prototype.toString.call(frames) !== "[object Object]") frames = null;
+		if (!inst && !frames) return;
+		for (i = 0; i < rows.length; i++) {
+			if (rows[i].instances == null && inst && typeof inst === "object") {
+				n = lookupCount(inst, rows[i].name);
+				if (n != null) rows[i].instances = n;
+			}
+			if (rows[i].frames == null && frames && typeof frames === "object") {
+				n = lookupCount(frames, rows[i].name);
+				if (n != null) rows[i].frames = n;
+			}
+		}
 	}
 
 	function modelLine(doc) {
@@ -570,15 +845,6 @@
 		if (family != null && mode != null && String(mode) !== "") return "Μοντέλο: " + family + " (" + mode + ")";
 		if (family != null) return "Μοντέλο: " + family;
 		return "Μοντέλο: (" + mode + ")";
-	}
-
-	function classMapText(doc) {
-		var rows = classMapRows(doc), i, parts = [], score;
-		for (i = 0; i < rows.length; i++) {
-			score = formatScore(rows[i].score);
-			parts.push(score ? rows[i].name + " " + score : rows[i].name);
-		}
-		return parts.join(" · ");
 	}
 
 	function addOpt(sel, value, label) {
@@ -633,10 +899,11 @@
 
 	function paintTrainer() {
 		var root = document.getElementById("liveTrainer");
-		var phrase, cover, prog, map, when, err, model, classesText, reviewedCount, classCount, bits, any, doc;
+		var phrase, cover, prog, map, when, err, model, reviewedCount, classCount, bits, any, doc;
 		if (!root) return;
 		if (!connected) {
 			root.hidden = true;
+			paintMapPanel(null);
 			return;
 		}
 		doc = trainerDoc && !trainerBad ? trainerDoc : null;
@@ -647,17 +914,16 @@
 		when = doc ? shortTime(pick(doc, ["updated_at", "updatedAt", "timestamp", "time", "last_update", "finished_at"])) : "";
 		err = trainerBad ? { text: "μη έγκυρη κατάσταση", title: "" } : (trainerDoc ? trainerErrorView(trainerDoc) : { text: "", title: "" });
 		model = modelLine(doc);
-		classesText = doc ? classMapText(doc) : "";
 		setText("liveTrainerMain", phrase);
 		setText("liveTrainerRange", cover ? cover.text : "");
 		setText("liveTrainerProg", prog);
 		setText("liveTrainerMap", map);
 		setText("liveTrainerTime", when);
 		setText("liveTrainerModel", model);
-		setText("liveTrainerPerClass", classesText);
 		paintError(err.text, err.title);
 		paintModelChoice(doc);
-		any = phrase || (cover && cover.text) || prog || map || when || err.text || model || classesText || connected;
+		paintMapPanel(doc);
+		any = phrase || (cover && cover.text) || prog || map || when || err.text || model || connected;
 		root.hidden = !any;
 		bits = [];
 		if (doc) {
@@ -665,12 +931,9 @@
 			classCount = asCount(pick(doc, ["classes", "class_count", "classCount", "n_classes"]));
 			if (reviewedCount != null) bits.push("reviewed " + reviewedCount);
 			if (classCount != null) bits.push(classCount + " κλάσεις");
-			if (classesText) bits.push(classesText);
 			if (err.text) bits.push(err.text);
 		}
 		root.title = bits.join(" · ");
-		var per = document.getElementById("liveTrainerPerClass");
-		if (per) per.title = classesText;
 	}
 
 	function paint() {
@@ -1557,6 +1820,19 @@
 			scheduleChange();
 		}, true);
 		if (hits) hits.addEventListener("change", scheduleChange);
+		var mapBtn = document.getElementById("mapGlanceOpen");
+		var mapClose = document.getElementById("mapPanelClose");
+		if (mapBtn && !mapBtn._syncBound) {
+			mapBtn._syncBound = true;
+			mapBtn.addEventListener("click", function () {
+				toggleMapPanel();
+				this.blur();
+			});
+		}
+		if (mapClose && !mapClose._syncBound) {
+			mapClose._syncBound = true;
+			mapClose.addEventListener("click", function () { setMapPanel(false); });
+		}
 		var modelSel = document.getElementById("liveModelChoice");
 		var modelText = document.getElementById("liveModelFromText");
 		if (modelSel && !modelSel._syncBound) {
@@ -1592,6 +1868,7 @@
 		hookRemove();
 		hookRemoveAll();
 		bindUi();
+		initMapPanel();
 		if (!supported()) return;
 		restoreHandle();
 	}
