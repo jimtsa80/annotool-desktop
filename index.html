@@ -22,7 +22,7 @@
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
 	<link rel="stylesheet" href="css/livehud.css?v=17">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=25">
+	<link rel="stylesheet" href="css/modern.css?v=26">
 	
 
 
@@ -73,6 +73,9 @@
 			</div>
 			<label id="mergeOnExportLabel" for="mergeOnExport" title="στην εξαγωγή, ίδια brand+location γίνονται ένα annotation και τα hits το πλήθος. Το ζωντανό αρχείο κρατάει κάθε κουτί.">
 				<input id="mergeOnExport" type="checkbox" checked> συγχώνευση
+			</label>
+			<label id="autoAcceptLabel" for="autoAccept" title="με Next, Prev, S ή A, οι προβλέψεις που μένουν γίνονται κανονικά κουτιά. Όχι και Καμία μένουν απορριφθείσες. Το Shift+S δεν δέχεται τίποτα.">
+				<input id="autoAccept" type="checkbox" checked> αυτόματη αποδοχή
 			</label>
 			<div id="generationButtons" class="btn-group" role="group">
 				<button id="downloadAnn" type="button" class="btn btn-success btn-sm shadow" onclick="downloadAnnotations();">json</button>
@@ -428,7 +431,7 @@
 	<script type="text/javascript" src="js/compare.js"></script>
 	<script type="text/javascript" src="js/livehud.js?v=23"></script>
 	<script type="text/javascript" src="js/suggest.js?v=16"></script>
-	<script type="text/javascript" src="js/livesync.js?v=4"></script>
+	<script type="text/javascript" src="js/livesync.js?v=5"></script>
 	<script type="text/javascript" src="js/anno.js?v=2"></script>
 	<script>
 	(function () {

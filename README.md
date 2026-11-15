@@ -100,7 +100,7 @@ The file is written with one `createWritable` / `close`, so a reader does not se
 | `width`, `height` | Box size in that same canvas |
 | `confidence` | The prediction's confidence, or `null` if it had none |
 
-Leaving a frame without rejecting does not add a row. Switching folders does not copy another project's rejections. The trainer can treat these boxes as hard negatives.
+Leaving a frame does not by itself add a row: Next, Prev, S, and A accept the pending suggestions instead, and Shift+S leaves them pending. Only **Όχι**, **Καμία**, and deleting a predicted box write `rejected`. Switching folders does not copy another project's rejections. The trainer can treat these boxes as hard negatives.
 
 ## Predictions file (`annotool_predictions.json`)
 
@@ -109,6 +109,8 @@ Same shape `predict_to_json.py` writes (a normal annotool JSON). Drop that scrip
 Each annotation is `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, in the canvas given by that image's `width` and `height`. `confidence` (or `conf`) is optional and is only shown on the suggestion. Image keys are filename stems, matching `imageName`.
 
 When the annotator lands on a frame that has no boxes yet, each predicted annotation is drawn as its own suggestion. If the file has a `project` field and it is not the open folder, those boxes are ignored. Switching folders clears suggestions from the previous one. Two rows with the same brand and location stay two boxes (`hits` kept from each row, usually 1). Nothing is written over a frame that already has annotations. **Όλες** accepts every suggestion, **Ναι** accepts one, **Όχι** or **Καμία** rejects. Drag a box, then accept it. Accepted boxes become normal annotations.
+
+**αυτόματη αποδοχή** sits next to **συγχώνευση**, on by default, and is remembered in this browser (`annotool.autoAccept`). While it is on, leaving a frame with Next, Prev, S, or A accepts every suggestion that is still pending, the same as pressing **Ναι** on each one. Those boxes are normal annotations after that: they are in the live file and in the delivery export. A box already rejected or deleted stays in `rejected` and is not accepted. Shift+S skips the frame: nothing is accepted, and the frame is not added to `reviewed`. Uncheck the box to leave pending suggestions untouched. **Μεταφορά** still copies every box on the frame, including ones just accepted, onto the next frame when that toggle is on.
 
 A pre-merged prediction (one row whose `hits` is already the count) is one box with that hits value. For per-instance suggestions, write one annotation per logo (`--no-dedupe-brand-tpoint`). See `examples/annotool_predictions.json`.
 

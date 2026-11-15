@@ -1114,12 +1114,49 @@
 		pollTimer = null;
 	}
 
+	function autoAcceptOn() {
+		var box = document.getElementById("autoAccept");
+		if (box) return !!box.checked;
+		try { return localStorage.getItem("annotool.autoAccept") !== "0"; }
+		catch (e) { return true; }
+	}
+
+	function bindAutoAccept() {
+		var box = document.getElementById("autoAccept");
+		if (!box || box._syncBound) return;
+		var stored = null;
+		try { stored = localStorage.getItem("annotool.autoAccept"); } catch (e) {}
+		if (stored === "0") box.checked = false;
+		box.addEventListener("change", function () {
+			try { localStorage.setItem("annotool.autoAccept", box.checked ? "1" : "0"); } catch (e) {}
+		});
+		box._syncBound = true;
+	}
+
+	function hookNamed(name, flag) {
+		var fn = window[name];
+		if (typeof fn !== "function" || fn._syncNav) return;
+		window[name] = function () {
+			if (imReadFlag) return fn.apply(this, arguments);
+			window[flag] = true;
+			var result = fn.apply(this, arguments);
+			if (!imReadFlag) window[flag] = false;
+			return result;
+		};
+		window[name]._syncNav = true;
+	}
+
 	function arrived(left) {
 		ensureReviewed();
-		if (skipLeave) {
+		if (skipLeave || window.__liveSkipLeave) {
 			skipLeave = false;
+			window.__liveSkipLeave = false;
 			left = "";
+			dismiss = false;
+			shown = [];
+			clearUi();
 		}
+		window.__liveReviewLeave = false;
 		if (left && left !== imName) {
 			addReviewed(left);
 			dismiss = false;
@@ -1140,7 +1177,10 @@
 		var after = window[afterName];
 		if (typeof prep === "function" && !prep._syncLeave) {
 			window[prepName] = function () {
+				var review = prepName === "prepareChangeImg" && window.__liveReviewLeave && !window.__liveSkipLeave && !skipLeave;
 				window.__liveLeaving = (typeof imName !== "undefined") ? imName : "";
+				window.__liveReviewLeave = false;
+				if (review && autoAcceptOn()) acceptAll();
 				return prep.apply(this, arguments);
 			};
 			window[prepName]._syncLeave = true;
@@ -1259,6 +1299,10 @@
 
 	function boot() {
 		paint();
+		bindAutoAccept();
+		hookNamed("loadNextImg", "__liveReviewLeave");
+		hookNamed("loadPrevImg", "__liveReviewLeave");
+		hookNamed("loadNext10Img", "__liveSkipLeave");
 		hookPair("prepareChangeImg", "afterChangeImg");
 		hookPair("filter_prepareChangeImg", "filter_afterChangeImg");
 		hookStore();

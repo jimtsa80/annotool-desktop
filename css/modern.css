@@ -582,7 +582,8 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 #framePredict.miss { background: #3d4a52; color: #d5e4ee; }
 #framePredict.ahead { background: #8a4b12; color: #fff4e5; }
 #framePredict[hidden] { display: none !important; }
-#mergeOnExportLabel {
+#mergeOnExportLabel,
+#autoAcceptLabel {
 	display: inline-block;
 	margin: 0 8px 0 0;
 	color: #fefefe;
@@ -590,7 +591,8 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	font-weight: 700;
 	vertical-align: middle;
 }
-#mergeOnExportLabel input {
+#mergeOnExportLabel input,
+#autoAcceptLabel input {
 	position: static;
 	opacity: 1;
 	width: 14px;
