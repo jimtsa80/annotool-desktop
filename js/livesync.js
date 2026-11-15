@@ -31,6 +31,8 @@
 	var modelChoice = "continue";
 	var modelStored = false;
 	var modelUiSig = "";
+	var shownError = null;
+	var dismissedError = null;
 	var reviewedProject = null;
 	var reviewedLoaded = false;
 	var skipLeave = false;
@@ -371,15 +373,83 @@
 		return since + "/" + threshold;
 	}
 
-	function trainerError(doc) {
+	function rawTrainerError(doc) {
 		var err = pick(doc, ["last_error", "lastError", "error"]);
 		if (err == null) return "";
-		if (typeof err === "object") {
-			err = err.message || err.msg || "";
-		}
-		err = String(err).trim();
-		if (!err || err === "null" || err === "none") return "";
+		if (typeof err === "object") err = err.message || err.msg || "";
+		err = String(err).replace(/^\s+|\s+$/g, "");
+		if (!err || err === "null" || err === "none" || err === "None") return "";
 		return err;
+	}
+
+	function greekTrainerError(raw) {
+		var s = String(raw || "").toLowerCase();
+		if (/cuda/.test(s) && /out of memory|out of mem|outofmemory|\boom\b/.test(s)) {
+			return "Η κάρτα γραφικών γέμισε μνήμη – ο trainer θα ξαναδοκιμάσει αυτόματα";
+		}
+		if (s.indexOf("none of the reviewed names matched a jpg") !== -1 || s.indexOf("frames folder not found") !== -1 || (s.indexOf("folder not found") !== -1 && /frame|image|jpg/.test(s))) {
+			return "Ο trainer δεν βρίσκει τις εικόνες του φακέλου";
+		}
+		return "Πρόβλημα στον trainer – δείτε το παράθυρο του trainer";
+	}
+
+	function statusMoment(doc) {
+		return {
+			cycle: asNumber(pick(doc, ["cycle", "cycle_index", "cycleIndex"])),
+			state: normState(pick(doc, ["state", "status"])),
+			updated: pick(doc, ["updated_at", "updatedAt", "timestamp", "time", "last_update", "finished_at"])
+		};
+	}
+
+	function momentNewer(a, b) {
+		if (a == null || b == null || a === "" || b === "") return false;
+		var da = Date.parse(a), db = Date.parse(b);
+		if (!isNaN(da) && !isNaN(db)) return da > db;
+		return String(a) > String(b);
+	}
+
+	function errorIsStale(doc, raw) {
+		var now, errCycle;
+		if (!shownError || shownError.text !== raw) return false;
+		now = statusMoment(doc);
+		if (now.state === "error") return false;
+		errCycle = asNumber(pick(doc, ["last_error_cycle", "error_cycle", "lastErrorCycle"]));
+		if (errCycle != null && now.cycle != null && now.cycle > errCycle) return true;
+		if (now.cycle != null && shownError.cycle != null && now.cycle > shownError.cycle) return true;
+		if ((now.state === "idle" || now.state === "predicting") && shownError.state && shownError.state !== now.state && momentNewer(now.updated, shownError.updated)) return true;
+		return false;
+	}
+
+	function trainerErrorView(doc) {
+		var raw = rawTrainerError(doc);
+		var now, still;
+		if (!raw) {
+			shownError = null;
+			dismissedError = null;
+			return { text: "", title: "" };
+		}
+		now = statusMoment(doc);
+		still = dismissedError && dismissedError.text === raw && now.state !== "error" && now.cycle != null && dismissedError.cycle != null && now.cycle <= dismissedError.cycle;
+		if (still) return { text: "", title: "" };
+		if (dismissedError && dismissedError.text !== raw) dismissedError = null;
+		if (!shownError || shownError.text !== raw) {
+			shownError = { text: raw, cycle: now.cycle, state: now.state, updated: now.updated };
+			return { text: greekTrainerError(raw), title: raw };
+		}
+		if (errorIsStale(doc, raw)) {
+			dismissedError = { text: raw, cycle: now.cycle != null ? now.cycle : shownError.cycle };
+			shownError = null;
+			return { text: "", title: "" };
+		}
+		return { text: greekTrainerError(raw), title: raw };
+	}
+
+	function paintError(text, title) {
+		var el = document.getElementById("liveTrainerErr");
+		if (!el) return;
+		el.textContent = text || "";
+		el.hidden = !text;
+		el.title = title || "";
 	}
 
 	function setText(id, text) {
@@ -575,7 +645,7 @@
 		prog = doc ? trainerProgress(doc) : "";
 		map = doc ? formatMap(pick(doc, ["last_map50", "lastMap50", "map50", "mAP50", "map_50"])) : "";
 		when = doc ? shortTime(pick(doc, ["updated_at", "updatedAt", "timestamp", "time", "last_update", "finished_at"])) : "";
-		err = trainerBad ? "μη έγκυρη κατάσταση" : (trainerDoc ? trainerError(trainerDoc) : "");
+		err = trainerBad ? { text: "μη έγκυρη κατάσταση", title: "" } : (trainerDoc ? trainerErrorView(trainerDoc) : { text: "", title: "" });
 		model = modelLine(doc);
 		classesText = doc ? classMapText(doc) : "";
 		setText("liveTrainerMain", phrase);
@@ -585,9 +655,9 @@
 		setText("liveTrainerTime", when);
 		setText("liveTrainerModel", model);
 		setText("liveTrainerPerClass", classesText);
-		setText("liveTrainerErr", err);
+		paintError(err.text, err.title);
 		paintModelChoice(doc);
-		any = phrase || (cover && cover.text) || prog || map || when || err || model || classesText || connected;
+		any = phrase || (cover && cover.text) || prog || map || when || err.text || model || classesText || connected;
 		root.hidden = !any;
 		bits = [];
 		if (doc) {
@@ -596,7 +666,7 @@
 			if (reviewedCount != null) bits.push("reviewed " + reviewedCount);
 			if (classCount != null) bits.push(classCount + " κλάσεις");
 			if (classesText) bits.push(classesText);
-			if (err) bits.push(err);
+			if (err.text) bits.push(err.text);
 		}
 		root.title = bits.join(" · ");
 		var per = document.getElementById("liveTrainerPerClass");

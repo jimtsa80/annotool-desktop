@@ -22,7 +22,7 @@
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
 	<link rel="stylesheet" href="css/livehud.css?v=17">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=27">
+	<link rel="stylesheet" href="css/modern.css?v=28">
 	
 
 
@@ -126,11 +126,11 @@
 			</span>
 			
 			<span id="resizefname">
-				<button id="lastButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadLastImg();">Τέλος</button>
-				<button id="nextButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadNextImg();">Next</button>
-				<button id="prevButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadPrevImg();">Prev</button>
 				<button id="firstButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadFirstImg();">Αρχή</button>
-				<input id="imageName" type="text" size="1" class="form-control input-sm shadow">
+				<button id="prevButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadPrevImg();">Prev</button>
+				<input id="imageName" type="text" class="form-control input-sm shadow" title="αριθμός καρέ. Πάτα Enter για να πας εκεί" autocomplete="off" spellcheck="false">
+				<button id="nextButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadNextImg();">Next</button>
+				<button id="lastButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadLastImg();">Τέλος</button>
 				<select id="clusterPick" title="φάκελος"></select>
 			</span>
 		</div>
@@ -441,7 +441,7 @@
 	<script type="text/javascript" src="js/compare.js"></script>
 	<script type="text/javascript" src="js/livehud.js?v=23"></script>
 	<script type="text/javascript" src="js/suggest.js?v=16"></script>
-	<script type="text/javascript" src="js/livesync.js?v=6"></script>
+	<script type="text/javascript" src="js/livesync.js?v=7"></script>
 	<script type="text/javascript" src="js/anno.js?v=2"></script>
 	<script>
 	(function () {

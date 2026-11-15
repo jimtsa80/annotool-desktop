@@ -133,7 +133,9 @@ Optional file in the same folder, written by the trainer. While **Ζωντανά
 | `classes` | Class count (or a list) |
 | `last_map50` | Last mAP50 |
 | `updated_at` | When this status was written |
-| `last_error` | Shown in red. Empty or null hides it |
+| `last_error` | Short Greek note in red. The original text is only on the tooltip. Empty or null hides it |
+
+`CUDA … out of memory` is shown as `Η κάρτα γραφικών γέμισε μνήμη – ο trainer θα ξαναδοκιμάσει αυτόματα`. `none of the reviewed names matched a jpg` and `frames folder not found` are shown as `Ο trainer δεν βρίσκει τις εικόνες του φακέλου`. Anything else is `Πρόβλημα στον trainer – δείτε το παράθυρο του trainer`. Once a later status has a higher `cycle`, or moves from that error into idle or predicting, the note is hidden even if `last_error` is still in the file.
 | `predicted_from`, `predicted_to` | Frame span of the current predictions, if the trainer sets them |
 | `model_family`, `model_mode` | Shown as `Μοντέλο: yolo11 (finetune)` |
 | `families` | Names offered in **συνέχεια από…**. Without this list the annotator types a name |
