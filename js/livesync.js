@@ -40,6 +40,8 @@
 	var hydratedProject = "";
 	var drawnFor = "";
 	var boardDirty = false;
+	var bareNoticeProject = "";
+	var bareNoticeNames = [];
 	var modelChoice = "continue";
 	var modelStored = false;
 	var modelUiSig = "";
@@ -132,24 +134,92 @@
 		return n;
 	}
 
-	function reviewedLooksBulk(list) {
-		var frames, n;
-		if (!list || !list.length || navReviews) return false;
-		n = list.length;
-		frames = frameTotal();
-		if (frames >= 30) return n >= frames - 2;
-		return frames === 0 && n >= 100;
+	function reviewedNames(list) {
+		var out = [], i, name;
+		if (!list || !list.length) return out;
+		for (i = 0; i < list.length; i++) {
+			name = list[i];
+			if (typeof name === "string" && name && out.indexOf(name) === -1) out.push(name);
+		}
+		return out;
 	}
 
-	function loadReviewedList() {
-		reviewed = [];
+	function readStoredReviewed() {
 		try {
 			var raw = localStorage.getItem(reviewKey());
 			var arr = raw ? JSON.parse(raw) : [];
-			if (Object.prototype.toString.call(arr) !== "[object Array]") return;
-			if (reviewedLooksBulk(arr)) return;
-			for (var i = 0; i < arr.length; i++) if (typeof arr[i] === "string" && arr[i]) reviewed.push(arr[i]);
-		} catch (e) {}
+			if (Object.prototype.toString.call(arr) !== "[object Array]") return [];
+			return reviewedNames(arr);
+		} catch (e) { return []; }
+	}
+
+	function unionReviewed(a, b) {
+		return reviewedNames((a || []).concat(b || []));
+	}
+
+	function withoutBoxes(list) {
+		var images, out = [], i, name, entry;
+		images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
+		list = list || [];
+		for (i = 0; i < list.length; i++) {
+			name = list[i];
+			entry = images[name];
+			if (!entry || !entry.annotations || !entry.annotations.length) out.push(name);
+		}
+		return out;
+	}
+
+	function bareNoticeKey() {
+		return "annotool.bareNotice:" + (currentProject() || "_");
+	}
+
+	function clearWarnedBare() {
+		var images, drop = {}, kept = [], i, name, entry, has;
+		for (i = 0; i < bareNoticeNames.length; i++) drop[bareNoticeNames[i]] = 1;
+		images = (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) || {};
+		for (i = 0; i < reviewed.length; i++) {
+			name = reviewed[i];
+			entry = images[name];
+			has = entry && entry.annotations && entry.annotations.length;
+			if (drop[name] && !has) continue;
+			kept.push(name);
+		}
+		reviewed = kept;
+		bareNoticeNames = [];
+		saveReviewed();
+		flush(true);
+	}
+
+	function warnBareReviewed(names) {
+		var project, n, nty;
+		project = currentProject();
+		names = names || [];
+		if (!project || names.length < 15 || bareNoticeProject === project) return;
+		try { if (sessionStorage.getItem(bareNoticeKey()) === "1") { bareNoticeProject = project; return; } } catch (e) {}
+		bareNoticeProject = project;
+		bareNoticeNames = names.slice();
+		try { sessionStorage.setItem(bareNoticeKey(), "1"); } catch (e2) {}
+		if (!window.Noty) return;
+		n = names.length;
+		nty = new Noty({
+			type: "warning",
+			theme: "mint",
+			layout: "topRight",
+			timeout: false,
+			closeWith: ["click", "button"],
+			text: "Βρέθηκαν " + n + " ελεγμένα frames χωρίς κουτιά · θα μετρηθούν ως negatives",
+			buttons: [
+				Noty.button("Καθάρισέ τα", "liveBareClear", function () {
+					clearWarnedBare();
+					nty.close();
+				}, { id: "clearBareReviewed" })
+			]
+		});
+		nty.show();
+	}
+
+	function loadReviewedList() {
+		reviewed = readStoredReviewed();
 	}
 
 	function projectFamily() {
@@ -1360,25 +1430,26 @@
 	}
 
 	function adoptLiveDoc(doc) {
-		var project, i, item, bogus;
+		var project, fromFile, fromBrowser, addedBare;
 		if (!doc) return;
 		project = currentProject();
 		if (!project) return;
 		if (doc.project && String(doc.project) !== String(project)) return;
 		if (!reviewedProject) reviewedProject = project;
-		bogus = Array.isArray(doc.reviewed) && reviewedLooksBulk(doc.reviewed) && annotationCount(doc.images) === 0 && !navReviews;
+		fromFile = [];
+		fromBrowser = [];
 		if (!navReviews) {
-			reviewed = [];
-			if (!bogus && Array.isArray(doc.reviewed)) {
-				for (i = 0; i < doc.reviewed.length; i++) {
-					item = doc.reviewed[i];
-					if (typeof item === "string" && item) reviewed.push(item);
-				}
-			}
+			fromFile = reviewedNames(doc.reviewed);
+			fromBrowser = readStoredReviewed();
+			reviewed = unionReviewed(fromBrowser, fromFile);
 			saveReviewed();
 		}
 		if (!userCleared && !allowEmptyWrite && typeof allAnnotations !== "undefined" && allAnnotations && annotationCount(allAnnotations.images) === 0 && annotationCount(doc.images) > 0) {
 			restoreMemoryImages(doc.images);
+		}
+		if (!navReviews) {
+			addedBare = withoutBoxes(fromBrowser.filter(function (name) { return fromFile.indexOf(name) === -1; }));
+			warnBareReviewed(addedBare);
 		}
 		mergeRejected(doc);
 		absorbModel(doc);
@@ -1404,14 +1475,13 @@
 	}
 
 	function applyLiveGuards(next, prev) {
-		var frames, nextN, prevN, snapN, same, nextR, prevR, prevFull;
+		var nextN, prevN, snapN, same;
 		if (!next) return;
 		if (userCleared || allowEmptyWrite) {
 			userCleared = false;
 			allowEmptyWrite = false;
 			return;
 		}
-		frames = frameTotal();
 		nextN = annotationCount(next.images);
 		prevN = prev ? annotationCount(prev.images) : 0;
 		snapN = annotationCount(hydratedImages);
@@ -1419,21 +1489,9 @@
 		if (nextN === 0 && same && prevN > 0) {
 			next.images = prev.images;
 			restoreMemoryImages(prev.images);
-			nextN = prevN;
 		} else if (nextN === 0 && snapN > 0 && (!hydratedProject || !next.project || String(hydratedProject) === String(next.project))) {
 			try { next.images = JSON.parse(JSON.stringify(hydratedImages)); } catch (e) { next.images = hydratedImages; }
 			restoreMemoryImages(hydratedImages);
-			nextN = snapN;
-		}
-		nextR = Array.isArray(next.reviewed) ? next.reviewed : [];
-		prevR = prev && Array.isArray(prev.reviewed) ? prev.reviewed : [];
-		if (!navReviews && frames > 30 && nextR.length >= frames - 2) {
-			prevFull = prev && prevN > 0 && prevR.length >= frames - 2;
-			if (!prevFull) {
-				next.reviewed = prevR.length < frames / 2 ? prevR.slice() : [];
-				reviewed = next.reviewed.slice();
-				saveReviewed();
-			}
 		}
 	}
 

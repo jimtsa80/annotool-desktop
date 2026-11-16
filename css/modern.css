@@ -658,6 +658,15 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	width: 38%;
 	animation: liveWaitSlide 1.15s ease-in-out infinite;
 }
+.noty_theme__mint .noty_buttons .liveBareClear {
+	background: #1c2830;
+	color: #fff;
+	border: 0;
+	border-radius: 4px;
+	font-weight: 700;
+	padding: 4px 10px;
+	cursor: pointer;
+}
 @keyframes liveWaitSlide {
 	0% { transform: translateX(-120%); }
 	100% { transform: translateX(280%); }
