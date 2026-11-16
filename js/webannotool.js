@@ -310,15 +310,18 @@ document.addEventListener("change", function (e) {
 
 function checkLoadLocalStorage() {
     "undefined" === typeof localStorage && alert("CAUTION: Local storage is not supported by your browser. For this reason autosave will not work. You have to manually save your annotations.");
-    if ("undefined" !== typeof localStorage.allAnnotations && "" !== localStorage.allAnnotations) {
-        allAnnotations = JSON.parse(localStorage.allAnnotations);
-        prefs = allAnnotations.prefs;
-        presets = allAnnotations.presets;
-        $("#brands").html("");
-        resetGUIAnnoInfo();
-        document.getElementById("projectName").innerHTML = prefs.projectName
-		document.getElementById("AnnotatorName").innerHTML = prefs.AnnotatorName
-    }
+    try {
+        if ("undefined" !== typeof localStorage.allAnnotations && "" !== localStorage.allAnnotations) {
+            allAnnotations = JSON.parse(localStorage.allAnnotations);
+            prefs = allAnnotations.prefs;
+            presets = allAnnotations.presets;
+            if (prefs && prefs.projectName) document.getElementById("projectName").innerHTML = prefs.projectName;
+            if (prefs && prefs.AnnotatorName) document.getElementById("AnnotatorName").innerHTML = prefs.AnnotatorName;
+            if (typeof paintSavedBrands === "function") paintSavedBrands();
+            resetGUIAnnoInfo();
+        }
+    } catch (e) {}
+    if (window.AnnoSync && AnnoSync.noteHydrated) AnnoSync.noteHydrated();
 }
 
 function uniqueArr(list) {

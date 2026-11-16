@@ -31,6 +31,15 @@
 	var shown = [];
 	var reviewed = [];
 	var rejected = {};
+	var storageReady = false;
+	var userCleared = false;
+	var navReviews = 0;
+	var allowEmptyWrite = false;
+	var liveReviewedAdopted = false;
+	var hydratedImages = null;
+	var hydratedProject = "";
+	var drawnFor = "";
+	var boardDirty = false;
 	var modelChoice = "continue";
 	var modelStored = false;
 	var modelUiSig = "";
@@ -104,14 +113,42 @@
 		if (changed) saveRejected();
 	}
 
+	function frameTotal() {
+		var n = 0, key;
+		if (typeof imIndices !== "undefined" && imIndices && imIndices.length) return imIndices.length;
+		if (typeof imAll !== "undefined" && imAll) {
+			for (key in imAll) if (Object.prototype.hasOwnProperty.call(imAll, key) && key) n++;
+		}
+		return n;
+	}
+
+	function annotationCount(images) {
+		var n = 0, key;
+		if (!images || typeof images !== "object") return 0;
+		for (key in images) {
+			if (!Object.prototype.hasOwnProperty.call(images, key) || !images[key]) continue;
+			if (images[key].annotations && images[key].annotations.length) n++;
+		}
+		return n;
+	}
+
+	function reviewedLooksBulk(list) {
+		var frames, n;
+		if (!list || !list.length || navReviews) return false;
+		n = list.length;
+		frames = frameTotal();
+		if (frames >= 30) return n >= frames - 2;
+		return frames === 0 && n >= 100;
+	}
+
 	function loadReviewedList() {
 		reviewed = [];
 		try {
 			var raw = localStorage.getItem(reviewKey());
 			var arr = raw ? JSON.parse(raw) : [];
-			if (Object.prototype.toString.call(arr) === "[object Array]") {
-				for (var i = 0; i < arr.length; i++) if (typeof arr[i] === "string" && arr[i]) reviewed.push(arr[i]);
-			}
+			if (Object.prototype.toString.call(arr) !== "[object Array]") return;
+			if (reviewedLooksBulk(arr)) return;
+			for (var i = 0; i < arr.length; i++) if (typeof arr[i] === "string" && arr[i]) reviewed.push(arr[i]);
 		} catch (e) {}
 	}
 
@@ -184,11 +221,16 @@
 
 	function ensureReviewed() {
 		var project = currentProject();
+		var keep;
 		if (reviewedLoaded && project === reviewedProject) return;
 		if (reviewedLoaded) { saveReviewed(); saveRejected(); saveModel(); }
+		keep = liveReviewedAdopted;
 		reviewedProject = project;
 		reviewedLoaded = true;
-		loadReviewedList();
+		if (!keep) {
+			liveReviewedAdopted = false;
+			reviewed = [];
+		}
 		loadRejected();
 		loadModel();
 	}
@@ -206,7 +248,11 @@
 		if (reviewedLoaded) { saveReviewed(); saveRejected(); saveModel(); }
 		reviewedProject = name;
 		reviewedLoaded = true;
-		loadReviewedList();
+		liveReviewedAdopted = false;
+		reviewed = [];
+		navReviews = 0;
+		allowEmptyWrite = false;
+		boardDirty = false;
 		loadRejected();
 		loadModel();
 		skipLeave = true;
@@ -219,13 +265,14 @@
 		paintFramePredict();
 		paintTrainer();
 		if (predictionsApply()) showForCurrent();
-		if (connected) flush(true);
+		if (connected) return pullLiveState().then(function () { return flush(true); });
 	}
 
 	function addReviewed(name) {
 		if (!name) return;
 		ensureReviewed();
 		if (reviewed.indexOf(name) === -1) reviewed.push(name);
+		navReviews++;
 		saveReviewed();
 	}
 
@@ -1262,11 +1309,17 @@
 	}
 
 	function buildLiveText() {
+		var name, saved, keepSaved;
 		ensureReviewed();
-		flushing = true;
-		try { if (typeof storeAnnotationImg === "function") storeAnnotationImg(); }
-		catch (e) {}
-		flushing = false;
+		name = (typeof imName !== "undefined" && imName) ? imName : "";
+		saved = name && allAnnotations && allAnnotations.images && allAnnotations.images[name];
+		keepSaved = saved && saved.annotations && saved.annotations.length && !boardDirty;
+		if (!keepSaved) {
+			flushing = true;
+			try { if (typeof storeAnnotationImg === "function") storeAnnotationImg(); }
+			catch (e) {}
+			flushing = false;
+		}
 		var payload = JSON.parse(JSON.stringify(allAnnotations));
 		var project = currentProject();
 		if (project) {
@@ -1301,17 +1354,128 @@
 		}
 	}
 
+	function restoreMemoryImages(images) {
+		if (typeof allAnnotations === "undefined" || !allAnnotations || !images) return;
+		try { allAnnotations.images = JSON.parse(JSON.stringify(images)); } catch (e) {}
+	}
+
+	function adoptLiveDoc(doc) {
+		var project, i, item, bogus;
+		if (!doc) return;
+		project = currentProject();
+		if (!project) return;
+		if (doc.project && String(doc.project) !== String(project)) return;
+		if (!reviewedProject) reviewedProject = project;
+		bogus = Array.isArray(doc.reviewed) && reviewedLooksBulk(doc.reviewed) && annotationCount(doc.images) === 0 && !navReviews;
+		if (!navReviews) {
+			reviewed = [];
+			if (!bogus && Array.isArray(doc.reviewed)) {
+				for (i = 0; i < doc.reviewed.length; i++) {
+					item = doc.reviewed[i];
+					if (typeof item === "string" && item) reviewed.push(item);
+				}
+			}
+			saveReviewed();
+		}
+		if (!userCleared && !allowEmptyWrite && typeof allAnnotations !== "undefined" && allAnnotations && annotationCount(allAnnotations.images) === 0 && annotationCount(doc.images) > 0) {
+			restoreMemoryImages(doc.images);
+		}
+		mergeRejected(doc);
+		absorbModel(doc);
+		liveReviewedAdopted = true;
+	}
+
+	function pullLiveState() {
+		if (!dirHandle) {
+			if (!liveReviewedAdopted && !navReviews) loadReviewedList();
+			liveReviewedAdopted = true;
+			return Promise.resolve();
+		}
+		return readNamed(LIVE_FILE).then(function (text) {
+			var doc = null;
+			try { doc = JSON.parse(text); } catch (e) { doc = null; }
+			if (doc) adoptLiveDoc(doc);
+			if (!liveReviewedAdopted && !navReviews) loadReviewedList();
+			liveReviewedAdopted = true;
+		}).catch(function () {
+			if (!navReviews) loadReviewedList();
+			liveReviewedAdopted = true;
+		});
+	}
+
+	function applyLiveGuards(next, prev) {
+		var frames, nextN, prevN, snapN, same, nextR, prevR, prevFull;
+		if (!next) return;
+		if (userCleared || allowEmptyWrite) {
+			userCleared = false;
+			allowEmptyWrite = false;
+			return;
+		}
+		frames = frameTotal();
+		nextN = annotationCount(next.images);
+		prevN = prev ? annotationCount(prev.images) : 0;
+		snapN = annotationCount(hydratedImages);
+		same = !prev || !prev.project || !next.project || String(prev.project) === String(next.project);
+		if (nextN === 0 && same && prevN > 0) {
+			next.images = prev.images;
+			restoreMemoryImages(prev.images);
+			nextN = prevN;
+		} else if (nextN === 0 && snapN > 0 && (!hydratedProject || !next.project || String(hydratedProject) === String(next.project))) {
+			try { next.images = JSON.parse(JSON.stringify(hydratedImages)); } catch (e) { next.images = hydratedImages; }
+			restoreMemoryImages(hydratedImages);
+			nextN = snapN;
+		}
+		nextR = Array.isArray(next.reviewed) ? next.reviewed : [];
+		prevR = prev && Array.isArray(prev.reviewed) ? prev.reviewed : [];
+		if (!navReviews && frames > 30 && nextR.length >= frames - 2) {
+			prevFull = prev && prevN > 0 && prevR.length >= frames - 2;
+			if (!prevFull) {
+				next.reviewed = prevR.length < frames / 2 ? prevR.slice() : [];
+				reviewed = next.reviewed.slice();
+				saveReviewed();
+			}
+		}
+	}
+
+	function protectLive(text) {
+		var next;
+		try { next = JSON.parse(text); }
+		catch (e) { return Promise.resolve(text); }
+		if (!dirHandle) {
+			applyLiveGuards(next, null);
+			return Promise.resolve(JSON.stringify(next));
+		}
+		return readNamed(LIVE_FILE).then(function (prevText) {
+			var prev = null;
+			try { prev = JSON.parse(prevText); } catch (e2) { prev = null; }
+			applyLiveGuards(next, prev);
+			return JSON.stringify(next);
+		}, function () {
+			applyLiveGuards(next, null);
+			return JSON.stringify(next);
+		});
+	}
+
+	function writesAllowed() {
+		return storageReady && frameTotal() > 0;
+	}
+
 	function flush(force) {
-		if (!connected || !dirHandle) return Promise.resolve();
+		if (!connected || !dirHandle || !writesAllowed()) return Promise.resolve();
 		clearTimeout(timer);
 		var run = function () {
-			if (!connected || !dirHandle) return;
-			var text;
-			try { text = buildLiveText(); }
-			catch (e) { return; }
-			var body = bodyOf(text);
-			if (!force && body === lastBody) return;
-			return writeAtomic(dirHandle, LIVE_FILE, text).then(function () { lastBody = body; });
+			if (!connected || !dirHandle || !writesAllowed()) return;
+			var prepare = liveReviewedAdopted ? Promise.resolve() : pullLiveState();
+			return prepare.then(function () {
+				var text;
+				try { text = buildLiveText(); }
+				catch (e) { return; }
+				return protectLive(text).then(function (safe) {
+					var body = bodyOf(safe);
+					if (!force && body === lastBody) return;
+					return writeAtomic(dirHandle, LIVE_FILE, safe).then(function () { lastBody = body; });
+				});
+			});
 		};
 		chain = chain.then(run, run).catch(onWriteError);
 		return chain;
@@ -1332,17 +1496,7 @@
 		}).then(function (text) {
 			var doc = JSON.parse(text);
 			if (!doc) return;
-			ensureReviewed();
-			var project = currentProject();
-			if (doc.project && project && String(doc.project) !== String(project)) return;
-			if (doc.reviewed && doc.reviewed.length) {
-				for (var i = 0; i < doc.reviewed.length; i++) {
-					if (typeof doc.reviewed[i] === "string" && reviewed.indexOf(doc.reviewed[i]) === -1) reviewed.push(doc.reviewed[i]);
-				}
-				saveReviewed();
-			}
-			mergeRejected(doc);
-			absorbModel(doc);
+			adoptLiveDoc(doc);
 		}).catch(function () {});
 	}
 
@@ -1354,7 +1508,9 @@
 		idbSet("dir", handle).catch(function () {});
 		paint();
 		startPoll();
-		return absorbFileReviewed().then(function () { return flush(true); });
+		return absorbFileReviewed().then(function () {
+			if (writesAllowed()) return flush(true);
+		});
 	}
 
 	function disconnect() {
@@ -2006,6 +2162,8 @@
 				var left = window.__liveLeaving || "";
 				window.__liveLeaving = "";
 				var result = after.apply(this, arguments);
+				drawnFor = (typeof imName !== "undefined" && imName) ? imName : "";
+				boardDirty = false;
 				arrived(left);
 				return result;
 			};
@@ -2017,7 +2175,9 @@
 		if (typeof storeAnnotationImg !== "function" || storeAnnotationImg._syncWrapped) return;
 		var orig = storeAnnotationImg;
 		window.storeAnnotationImg = function () {
+			if (!flushing) boardDirty = true;
 			var result = orig.apply(this, arguments);
+			if (boardDirty && drawnFor && typeof imName !== "undefined" && drawnFor === imName && annotationCount(allAnnotations && allAnnotations.images) === 0) allowEmptyWrite = true;
 			if (!flushing) scheduleChange();
 			return result;
 		};
@@ -2030,6 +2190,7 @@
 		window.removePolygon = function (poly) {
 			var was = poly && poly._liveSuggest;
 			if (was && !clearingPredictions) recordRejection(poly);
+			if (!was && !clearingPredictions) boardDirty = true;
 			if (was) dropShown(poly);
 			var result = orig.apply(this, arguments);
 			if (was && !clearingPredictions) {
@@ -2137,6 +2298,9 @@
 	}
 
 	function boot() {
+		if (typeof checkLoadLocalStorage === "function") {
+			try { checkLoadLocalStorage(); } catch (e) {}
+		}
 		paint();
 		bindAutoAccept();
 		hookNamed("loadNextImg", "__liveReviewLeave");
@@ -2157,6 +2321,24 @@
 		connectHandle: connectHandle,
 		disconnect: disconnect,
 		flush: function () { return flush(true); },
+		noteHydrated: function () {
+			storageReady = true;
+			hydratedProject = currentProject();
+			hydratedImages = null;
+			if (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.images) {
+				try { hydratedImages = JSON.parse(JSON.stringify(allAnnotations.images)); } catch (e) { hydratedImages = null; }
+			}
+		},
+		noteCleared: function () {
+			userCleared = true;
+			allowEmptyWrite = true;
+			hydratedImages = null;
+			hydratedProject = "";
+			navReviews = 0;
+			reviewed = [];
+			if (reviewedLoaded) saveReviewed();
+			liveReviewedAdopted = true;
+		},
 		onAutosave: function () { return flush(true); },
 		noteChange: scheduleChange,
 		pollNow: poll,
