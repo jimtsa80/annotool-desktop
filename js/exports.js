@@ -82,6 +82,18 @@ function stripLiveMeta(doc) {
     return doc;
 }
 
+function imagesForOpenFolder(images) {
+    var set = {}, out = {}, i, key;
+    images = images || {};
+    if (typeof imIndices === "undefined" || !imIndices || !imIndices.length) return {};
+    for (i = 0; i < imIndices.length; i++) if (imIndices[i]) set[imIndices[i]] = 1;
+    for (key in images) {
+        if (!Object.prototype.hasOwnProperty.call(images, key) || !set[key]) continue;
+        out[key] = images[key];
+    }
+    return out;
+}
+
 function imagesForDelivery(images) {
     var out = {}, name, copy, k;
     images = images || {};
@@ -100,14 +112,16 @@ function imagesForDelivery(images) {
 function deliveryPayload() {
     var payload = JSON.parse(JSON.stringify(allAnnotations));
     stripLiveMeta(payload);
+    payload.images = imagesForOpenFolder(payload.images);
     if (mergeOnExportEnabled()) payload.images = imagesForDelivery(payload.images);
     return payload;
 }
 
 function withDeliveryImages(fn) {
-    if (!mergeOnExportEnabled()) return fn();
     var saved = allAnnotations.images;
-    allAnnotations.images = imagesForDelivery(saved);
+    var images = imagesForOpenFolder(saved);
+    if (mergeOnExportEnabled()) images = imagesForDelivery(images);
+    allAnnotations.images = images;
     try { return fn(); }
     finally { allAnnotations.images = saved; }
 }
@@ -137,9 +151,14 @@ function downloadAnnotations() {
 }
 
 function imagesForCluster(name) {
-    var prefix = name + "/", images = allAnnotations.images || {}, out = {}, key, copy, bare;
+    var prefix = name + "/", images = allAnnotations.images || {}, out = {}, key, copy, bare, allowed = null, i;
+    if (typeof clusterGroups !== "undefined" && clusterGroups && clusterGroups[name] && clusterGroups[name].keys) {
+        allowed = {};
+        for (i = 0; i < clusterGroups[name].keys.length; i++) allowed[clusterGroups[name].keys[i]] = 1;
+    }
     for (key in images) {
         if (!images.hasOwnProperty(key) || key.indexOf(prefix) !== 0) continue;
+        if (allowed && !allowed[key]) continue;
         if (!images[key] || !images[key].annotations || !images[key].annotations.length) continue;
         bare = key.slice(prefix.length);
         copy = JSON.parse(JSON.stringify(images[key]));
@@ -404,7 +423,8 @@ function generateNewsCSV() { //old news format
     if ("" == $("#projectFolder").val()) return !1;
     storeAnnotationImg();
     var savedNewsImages = allAnnotations.images;
-    if (mergeOnExportEnabled()) allAnnotations.images = imagesForDelivery(savedNewsImages);
+    allAnnotations.images = imagesForOpenFolder(savedNewsImages);
+    if (mergeOnExportEnabled()) allAnnotations.images = imagesForDelivery(allAnnotations.images);
     try {
     var b = "video";
         d = allAnnotations.project.split("_"),
@@ -495,7 +515,8 @@ function generateNewsCSV_3(){ //from video.csv
 	if(""==$("#projectFolder").val())return!1;
 	storeAnnotationImg();
 	var savedNews3 = allAnnotations.images;
-	if (mergeOnExportEnabled()) allAnnotations.images = imagesForDelivery(savedNews3);
+	allAnnotations.images = imagesForOpenFolder(savedNews3);
+	if (mergeOnExportEnabled()) allAnnotations.images = imagesForDelivery(allAnnotations.images);
 	try {
 	var hm=allAnnotations.project.split("_"),
 	hm=hm[hm.length-1]||"0000", // gives 4 last digits OR 0000 if hm is false

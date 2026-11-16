@@ -14,6 +14,7 @@ brd,
 imList = [],
 imAll = {},
 imIndices = [],
+pendingFolderName = "",
 clusterGroups = null,
 clusterOrder = [],
 clustersOpened = {},
@@ -665,6 +666,7 @@ function fillTouchpoints(conn) {
 function initJSXBoard() {
     resetClusters();
     if ( 0 === $("#brands ul li").length || "" === prefs.prefsFilename){
+		pendingFolderName = "";
 		return prefs = {
 			projectName: "",
 			brands: [],
@@ -743,6 +745,9 @@ activeCluster = "",
         }
         allAnnotations.imageNum = imList.length ? countGrouped(grouped) : imIndices.length;
         imIndices.sort(alphanumCase);
+        var nextProject = (clusterGroups && activeCluster) ? activeCluster : pendingFolderName;
+        pendingFolderName = "";
+        if (nextProject && window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(nextProject);
         imName = imIndices[0];
         prev_imName = imIndices[0];
         prev_imIndex = imIndex = 0;
@@ -1042,6 +1047,7 @@ activeCluster = "",
     autosaveTimer = setInterval(function() {
         storeAnnotationImg();
         localStorage.allAnnotations = JSON.stringify(allAnnotations)
+        if (window.AnnoSync && AnnoSync.rememberProject) AnnoSync.rememberProject();
         if (window.AnnoSync && AnnoSync.onAutosave) AnnoSync.onAutosave();
     }, autosaveInterval)
 }

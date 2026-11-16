@@ -305,11 +305,112 @@
 		loadModel();
 	}
 
+	function annotationKey(name) {
+		return "annotool.annotations:" + name;
+	}
+
+	function snapshotAnnotations() {
+		return {
+			images: (allAnnotations && allAnnotations.images) || {},
+			currentImage: (allAnnotations && allAnnotations.currentImage) || "",
+			imageNum: (allAnnotations && allAnnotations.imageNum) || 0,
+			presets: (allAnnotations && allAnnotations.presets) || null
+		};
+	}
+
+	function writeAnnotationProject(name, snap) {
+		if (!name) return;
+		try { localStorage.setItem(annotationKey(name), JSON.stringify(snap)); } catch (e) {}
+	}
+
+	function readAnnotationProject(name) {
+		var raw, snap;
+		if (!name) return null;
+		try {
+			raw = localStorage.getItem(annotationKey(name));
+			if (!raw) return null;
+			snap = JSON.parse(raw);
+		} catch (e) { return null; }
+		if (!snap || typeof snap !== "object") return null;
+		return snap;
+	}
+
+	function blankPresets(src) {
+		var out = {}, k;
+		src = src || {};
+		for (k in src) if (Object.prototype.hasOwnProperty.call(src, k)) out[k] = [];
+		return out;
+	}
+
+	function seedPrefixedProjects(images) {
+		var groups = {}, key, cut, prefix;
+		images = images || {};
+		for (key in images) {
+			if (!Object.prototype.hasOwnProperty.call(images, key)) continue;
+			cut = key.lastIndexOf("/");
+			if (cut <= 0) continue;
+			prefix = key.slice(0, cut);
+			if (!groups[prefix]) groups[prefix] = {};
+			groups[prefix][key] = images[key];
+		}
+		for (prefix in groups) {
+			if (!Object.prototype.hasOwnProperty.call(groups, prefix)) continue;
+			if (readAnnotationProject(prefix)) continue;
+			writeAnnotationProject(prefix, { images: groups[prefix], currentImage: "", imageNum: 0, presets: null });
+		}
+	}
+
+	function archiveProject(name) {
+		if (!name || typeof allAnnotations === "undefined" || !allAnnotations) return;
+		if (typeof storeAnnotationImg === "function") {
+			try { storeAnnotationImg(); } catch (e) {}
+		}
+		var snap = snapshotAnnotations();
+		writeAnnotationProject(name, snap);
+		seedPrefixedProjects(snap.images);
+	}
+
+	function adoptProject(name) {
+		var snap;
+		if (typeof allAnnotations === "undefined" || !allAnnotations) return;
+		snap = readAnnotationProject(name);
+		if (!snap) {
+			allAnnotations.images = {};
+			allAnnotations.currentImage = "";
+			allAnnotations.presets = blankPresets(allAnnotations.presets);
+			if (typeof presets !== "undefined") presets = allAnnotations.presets;
+			return;
+		}
+		allAnnotations.images = snap.images || {};
+		allAnnotations.currentImage = snap.currentImage || "";
+		if (snap.imageNum) allAnnotations.imageNum = snap.imageNum;
+		if (snap.presets) {
+			allAnnotations.presets = snap.presets;
+			if (typeof presets !== "undefined") presets = snap.presets;
+		}
+	}
+
+	function rememberProject() {
+		var name = currentProject();
+		if (!name || typeof allAnnotations === "undefined" || !allAnnotations) return;
+		writeAnnotationProject(name, snapshotAnnotations());
+	}
+
 	function noteProject(name) {
+		var previous = "";
 		name = String(name || "").replace(/^\s+|\s+$/g, "");
 		if (!name) return;
+		if (typeof allAnnotations !== "undefined" && allAnnotations && allAnnotations.project) previous = String(allAnnotations.project).replace(/^\s+|\s+$/g, "");
+		if (!previous && reviewedLoaded && reviewedProject) previous = reviewedProject;
+		if (previous && previous !== name) {
+			archiveProject(previous);
+			adoptProject(name);
+		}
 		if (typeof allAnnotations !== "undefined" && allAnnotations) allAnnotations.project = name;
 		if (typeof prefs !== "undefined" && prefs) prefs.projectName = name;
+		if (previous && previous !== name) {
+			try { localStorage.allAnnotations = JSON.stringify(allAnnotations); } catch (e) {}
+		}
 		var changed = !reviewedLoaded || reviewedProject !== name;
 		if (!changed) {
 			if (connected) flush(true);
@@ -390,6 +491,7 @@
 	function normState(v) {
 		var s = String(v == null ? "" : v).trim().toLowerCase();
 		if (s === "training_family") return "training_family";
+		if (s === "searching") return "searching";
 		if (s === "waiting_gpu" || s === "waiting-gpu") return "waiting_gpu";
 		if (s === "training" || s === "train") return "training";
 		if (s === "predicting" || s === "predict" || s === "inference") return "predicting";
@@ -486,6 +588,7 @@
 		var cycle = pick(doc, ["cycle", "cycle_index", "cycleIndex"]);
 		var count = predictionFrameCount(doc);
 		if (state === "training_family") return "Ενιαίο μοντέλο…";
+		if (state === "searching") return "Ψάχνω τον φάκελο…";
 		if (state === "waiting_gpu") return "Αναμονή για κάρτα…";
 		if (state === "training") return "Εκπαίδευση…" + (cycle != null ? " κύκλος " + cycle : "");
 		if (state === "predicting") return "Προβλέψεις…";
@@ -570,7 +673,7 @@
 		if (foreignProject(doc)) return trainerBusy(doc);
 		if (!statusForOpen(doc) || isReady(doc)) return false;
 		state = normState(pick(doc, ["state", "status"]));
-		if (state === "training_family" || state === "waiting_gpu") return true;
+		if (state === "training_family" || state === "waiting_gpu" || state === "searching") return true;
 		if (state !== "predicting") return false;
 		if (!hasPrepareKeys(doc) && predictionsPresent()) return false;
 		return true;
@@ -655,7 +758,10 @@
 		var track = el.querySelector(".liveWaitTrack");
 		var fill = track.querySelector("i");
 		var done, total, pct = null;
-		if (foreignProject(doc)) {
+		if (state === "searching") {
+			text = "Ψάχνω τον φάκελο των frames…";
+			pct = -1;
+		} else if (foreignProject(doc)) {
 			if (statusIsStale(doc)) text = "Ο trainer δεν απαντά";
 			else {
 				text = "Περίμενε… τελειώνω την εκπαίδευση από τον προηγούμενο φάκελο (" + shortProject(doc.project) + "), μετά θα τρέξει πρόβλεψη εδώ";
@@ -2397,7 +2503,8 @@
 			if (reviewedLoaded) saveReviewed();
 			liveReviewedAdopted = true;
 		},
-		onAutosave: function () { return flush(true); },
+		onAutosave: function () { rememberProject(); return flush(true); },
+		rememberProject: rememberProject,
 		noteChange: scheduleChange,
 		pollNow: poll,
 		noteProject: noteProject,

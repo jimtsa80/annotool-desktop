@@ -63,14 +63,17 @@ fileInput.addEventListener("change", function(a) {
 		msg1 = "CAUTION: The folder you have selected is different than the one you ", 
 		msg2 = " Are you sure you want to proceed ?", 
 		confirm(msg1 + msg2) && (
+			pendingFolderName = folderName,
 			initJSXBoard(), 
 			prefs.imgFoldername = b, 
 			putFolderOnFile(),
 			a.value = folderSelectionLabel(b))) : 
-			(initJSXBoard(), 
+			(pendingFolderName = folderName,
+			initJSXBoard(), 
 			putFolderOnFile(),
 			a.value = folderSelectionLabel(b)) : 
-			(initJSXBoard(), 
+			(pendingFolderName = folderName,
+			initJSXBoard(), 
 				prefs.imgFoldername = b, 
 				putFolderOnFile(),
 				a.value = folderSelectionLabel(b)
