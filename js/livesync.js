@@ -483,8 +483,13 @@
 		var track = el.querySelector(".liveWaitTrack");
 		var fill = track.querySelector("i");
 		var done, total, pct = null;
-		if (state === "training_family") text = "Περίμενε · εκπαιδεύεται το ενιαίο μοντέλο" + epochSuffix(doc);
-		else if (state === "waiting_gpu") text = "Περίμενε · αναμονή για κάρτα γραφικών";
+		if (state === "training_family") {
+			done = asNumber(pick(doc, ["epoch", "current_epoch", "epoch_index", "epochIndex"]));
+			total = asNumber(pick(doc, ["epochs", "epoch_total", "epochTotal", "num_epochs", "max_epochs", "n_epochs"]));
+			text = "Περίμενε · εκπαιδεύεται το ενιαίο μοντέλο" + epochSuffix(doc);
+			if (done != null && total != null && total > 0) pct = Math.max(0, Math.min(100, (done / total) * 100));
+			else pct = -1;
+		} else if (state === "waiting_gpu") text = "Περίμενε · αναμονή για κάρτα γραφικών";
 		else {
 			done = asNumber(pick(doc, ["predicted_frames", "predictedFrames"]));
 			total = asNumber(pick(doc, ["predict_total", "predictTotal"]));
@@ -495,10 +500,11 @@
 			}
 		}
 		el.querySelector(".liveWaitText").textContent = text;
+		track.classList.toggle("is-busy", pct != null && pct < 0);
 		if (pct == null) track.hidden = true;
 		else {
 			track.hidden = false;
-			fill.style.width = pct + "%";
+			fill.style.width = pct < 0 ? "" : (pct + "%");
 		}
 		el.hidden = false;
 	}

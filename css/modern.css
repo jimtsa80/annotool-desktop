@@ -653,6 +653,14 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	width: 0;
 	background: #f0b429;
 }
+.liveWaitTrack.is-busy i {
+	width: 38%;
+	animation: liveWaitSlide 1.15s ease-in-out infinite;
+}
+@keyframes liveWaitSlide {
+	0% { transform: translateX(-120%); }
+	100% { transform: translateX(280%); }
+}
 #mergeOnExportLabel,
 #autoAcceptLabel {
 	display: inline-block;
