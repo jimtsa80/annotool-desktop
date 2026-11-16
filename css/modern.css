@@ -610,6 +610,49 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 #framePredict.miss { background: #3d4a52; color: #d5e4ee; }
 #framePredict.ahead { background: #8a4b12; color: #fff4e5; }
 #framePredict[hidden] { display: none !important; }
+#liveWait {
+	position: absolute;
+	z-index: 24;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	background: rgba(12, 18, 22, 0.78);
+	pointer-events: auto;
+}
+#liveWait[hidden] { display: none !important; }
+.liveWaitCard {
+	max-width: 92%;
+	padding: 18px 22px;
+	border-radius: 12px;
+	background: #1c2830;
+	color: #fff;
+	font-family: "Didact Gothic", sans-serif;
+	font-size: 22px;
+	font-weight: 700;
+	line-height: 1.35;
+	text-align: center;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+	pointer-events: none;
+}
+.liveWaitTrack {
+	height: 10px;
+	margin-top: 14px;
+	border-radius: 99px;
+	background: rgba(255, 255, 255, 0.16);
+	overflow: hidden;
+}
+.liveWaitTrack[hidden] { display: none !important; }
+.liveWaitTrack i {
+	display: block;
+	height: 100%;
+	width: 0;
+	background: #f0b429;
+}
 #mergeOnExportLabel,
 #autoAcceptLabel {
 	display: inline-block;

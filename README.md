@@ -126,7 +126,7 @@ Optional file in the same folder, written by the trainer. While **Ζωντανά
 
 | Field | Meaning |
 | --- | --- |
-| `state` | `idle`, `training`, or `predicting` |
+| `state` | `idle`, `training`, `predicting`, and, while a folder is being prepared, `training_family` or `waiting_gpu` |
 | `cycle` | Training cycle |
 | `reviewed` | Reviewed frames the trainer has counted |
 | `reviewed_since_last_cycle` and `threshold` | Progress toward the next cycle, shown as `40/80` when both are present |
@@ -138,6 +138,8 @@ Optional file in the same folder, written by the trainer. While **Ζωντανά
 | `model_family`, `model_mode` | Shown as `Μοντέλο: yolo11 (finetune)` |
 | `families` | Names offered in **συνέχεια από…**. Without this list the annotator types a name |
 | `per_class_map50` | One score per brand and location. An object of name → score, a name → `{map50, instances, frames}`, or a list of `{class, map50}`. Optional `per_class_instances` and `per_class_frames` objects supply the counts when they are not on the score |
+
+While a folder is still being prepared, a banner covers the image and the status line stays visible. Navigation (Αρχή, Prev, Next, Τέλος) still works. `training_family` says `Περίμενε · εκπαιδεύεται το ενιαίο μοντέλο (epoch x/y)` when both epoch numbers are present. `predicting` says `Περίμενε · βγαίνουν προβλέψεις (predicted_frames/predict_total)` and draws a progress bar when both counts are present. `waiting_gpu` says `Περίμενε · αναμονή για κάρτα γραφικών`. The banner is shown when `project` matches the open folder, or when `project` is null just after a switch. When `ready_for_user` becomes true, or the state is `idle` or `training` and this folder already has predictions, the banner goes away, a short `Έτοιμο · ξεκίνα` toast appears, and the predictions file is read again. Later training cycles only use the status line. An older status file that lacks these keys does not show the banner once predictions are already there.
 
 The status line keeps the overall mAP only (`mAP 0.42`). The per-class list is the **mAP50** button next to **Συνδυασμοί**. It opens a panel titled `mAP50 ανά συνδυασμό`, with the same open, close, and drag behaviour as the combinations panel, and the choice is remembered (`annotool.mapPanelOpen`). Each row is one brand and location, the mAP50 to three decimals, and the training instances and frames when the status has them. Green is 0.98 or higher, amber is 0.80 up to 0.98, red is below 0.80. A combination with no score yet shows `—`. The header says which cycle and time the numbers come from. Rows are sorted by mAP50, highest first.
 

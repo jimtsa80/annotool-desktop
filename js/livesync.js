@@ -24,6 +24,9 @@
 	var statusText = null;
 	var trainerDoc = null;
 	var trainerBad = false;
+	var prepareShown = false;
+	var prepareLatched = false;
+	var readyToastAt = 0;
 	var dismiss = false;
 	var shown = [];
 	var reviewed = [];
@@ -209,6 +212,10 @@
 		skipLeave = true;
 		window.__liveLeaving = "";
 		clearShownPredictions();
+		prepareShown = false;
+		prepareLatched = false;
+		readyToastAt = 0;
+		hideWait();
 		paintFramePredict();
 		paintTrainer();
 		if (predictionsApply()) showForCurrent();
@@ -265,6 +272,8 @@
 
 	function normState(v) {
 		var s = String(v == null ? "" : v).trim().toLowerCase();
+		if (s === "training_family") return "training_family";
+		if (s === "waiting_gpu" || s === "waiting-gpu") return "waiting_gpu";
 		if (s === "training" || s === "train") return "training";
 		if (s === "predicting" || s === "predict" || s === "inference") return "predicting";
 		if (s === "idle" || s === "ready" || s === "waiting" || s === "done" || s === "") return "idle";
@@ -358,6 +367,8 @@
 		var raw = pick(doc, ["state", "status"]);
 		var cycle = pick(doc, ["cycle", "cycle_index", "cycleIndex"]);
 		var count = predictionFrameCount(doc);
+		if (state === "training_family") return "Ενιαίο μοντέλο…";
+		if (state === "waiting_gpu") return "Αναμονή για κάρτα…";
 		if (state === "training") return "Εκπαίδευση…" + (cycle != null ? " κύκλος " + cycle : "");
 		if (state === "predicting") return "Προβλέψεις…";
 		if (state === "error") return "σφάλμα";
@@ -375,6 +386,149 @@
 		if (since == null && reviewed != null && atLast != null) since = Math.max(0, reviewed - atLast);
 		if (since == null || threshold == null) return "";
 		return since + "/" + threshold;
+	}
+
+	function statusForOpen(doc) {
+		var tagged, open;
+		if (!doc) return false;
+		if (!Object.prototype.hasOwnProperty.call(doc, "project")) return true;
+		if (doc.project == null) return true;
+		tagged = String(doc.project).replace(/^\s+|\s+$/g, "");
+		if (!tagged) return true;
+		open = String(currentProject() || "");
+		if (!open) return true;
+		return tagged === open;
+	}
+
+	function namedProjectMatch(doc) {
+		var tagged, open;
+		if (!doc || doc.project == null) return false;
+		tagged = String(doc.project).replace(/^\s+|\s+$/g, "");
+		open = String(currentProject() || "");
+		return !!(tagged && open && tagged === open);
+	}
+
+	function predictionsPresent() {
+		return !!(predictionsApply() && predictions.images && Object.keys(predictions.images).length);
+	}
+
+	function hasPrepareKeys(doc) {
+		if (!doc) return false;
+		if (Object.prototype.hasOwnProperty.call(doc, "ready_for_user") || Object.prototype.hasOwnProperty.call(doc, "readyForUser")) return true;
+		return pick(doc, ["predict_total", "predictTotal"]) != null;
+	}
+
+	function readyFlag(doc) {
+		var ready = null;
+		if (!doc) return false;
+		if (Object.prototype.hasOwnProperty.call(doc, "ready_for_user")) ready = doc.ready_for_user;
+		else if (Object.prototype.hasOwnProperty.call(doc, "readyForUser")) ready = doc.readyForUser;
+		return ready === true || ready === 1 || ready === "true" || ready === "1";
+	}
+
+	function isReady(doc) {
+		var state;
+		if (!doc || !statusForOpen(doc)) return false;
+		if (readyFlag(doc)) return true;
+		state = normState(pick(doc, ["state", "status"]));
+		return (state === "idle" || state === "training") && predictionsPresent();
+	}
+
+	function shouldShowWait(doc) {
+		var state;
+		if (!connected || !doc || prepareLatched || !statusForOpen(doc) || isReady(doc)) return false;
+		state = normState(pick(doc, ["state", "status"]));
+		if (state === "training_family" || state === "waiting_gpu") return true;
+		if (state !== "predicting") return false;
+		if (!hasPrepareKeys(doc) && predictionsPresent()) return false;
+		return true;
+	}
+
+	function epochSuffix(doc) {
+		var cur = asNumber(pick(doc, ["epoch", "current_epoch", "epoch_index", "epochIndex"]));
+		var total = asNumber(pick(doc, ["epochs", "epoch_total", "epochTotal", "num_epochs", "max_epochs", "n_epochs"]));
+		if (cur == null || total == null) return "";
+		return " (epoch " + cur + "/" + total + ")";
+	}
+
+	function waitHost() {
+		return document.getElementById("box") || document.body;
+	}
+
+	function ensureWait() {
+		var el = document.getElementById("liveWait");
+		var host = waitHost();
+		if (!el) {
+			el = document.createElement("div");
+			el.id = "liveWait";
+			el.hidden = true;
+			el.innerHTML = '<div class="liveWaitCard"><div class="liveWaitText"></div><div class="liveWaitTrack" hidden><i></i></div></div>';
+			el.addEventListener("mousedown", stop);
+			el.addEventListener("pointerdown", stop);
+			el.addEventListener("click", stop);
+		}
+		if (el.parentNode !== host) host.appendChild(el);
+		return el;
+	}
+
+	function hideWait() {
+		var el = document.getElementById("liveWait");
+		if (el) el.hidden = true;
+	}
+
+	function renderWait(doc) {
+		var el = ensureWait();
+		var state = normState(pick(doc, ["state", "status"]));
+		var text = "Περίμενε";
+		var track = el.querySelector(".liveWaitTrack");
+		var fill = track.querySelector("i");
+		var done, total, pct = null;
+		if (state === "training_family") text = "Περίμενε · εκπαιδεύεται το ενιαίο μοντέλο" + epochSuffix(doc);
+		else if (state === "waiting_gpu") text = "Περίμενε · αναμονή για κάρτα γραφικών";
+		else {
+			done = asNumber(pick(doc, ["predicted_frames", "predictedFrames"]));
+			total = asNumber(pick(doc, ["predict_total", "predictTotal"]));
+			text = "Περίμενε · βγαίνουν προβλέψεις";
+			if (done != null && total != null) {
+				text += " (" + done + "/" + total + ")";
+				if (total > 0) pct = Math.max(0, Math.min(100, (done / total) * 100));
+			}
+		}
+		el.querySelector(".liveWaitText").textContent = text;
+		if (pct == null) track.hidden = true;
+		else {
+			track.hidden = false;
+			fill.style.width = pct + "%";
+		}
+		el.hidden = false;
+	}
+
+	function forceReloadPredictions() {
+		predText = "";
+		return pollPredictions({ quiet: true });
+	}
+
+	function paintPrepare() {
+		var doc = trainerDoc && !trainerBad ? trainerDoc : null;
+		if (!connected) {
+			hideWait();
+			return;
+		}
+		if (shouldShowWait(doc)) {
+			prepareShown = true;
+			renderWait(doc);
+			return;
+		}
+		hideWait();
+		if (prepareShown && doc && isReady(doc)) {
+			prepareShown = false;
+			prepareLatched = true;
+			readyToastAt = Date.now();
+			toast("Έτοιμο · ξεκίνα");
+			forceReloadPredictions();
+			return;
+		}
+		if (doc && isReady(doc) && (namedProjectMatch(doc) || !Object.prototype.hasOwnProperty.call(doc, "project"))) prepareLatched = true;
 	}
 
 	function rawTrainerError(doc) {
@@ -904,6 +1058,7 @@
 		if (!connected) {
 			root.hidden = true;
 			paintMapPanel(null);
+			hideWait();
 			return;
 		}
 		doc = trainerDoc && !trainerBad ? trainerDoc : null;
@@ -923,6 +1078,7 @@
 		paintError(err.text, err.title);
 		paintModelChoice(doc);
 		paintMapPanel(doc);
+		paintPrepare();
 		any = phrase || (cover && cover.text) || prog || map || when || err.text || model || connected;
 		root.hidden = !any;
 		bits = [];
@@ -1144,6 +1300,10 @@
 		statusText = null;
 		trainerDoc = null;
 		trainerBad = false;
+		prepareShown = false;
+		prepareLatched = false;
+		readyToastAt = 0;
+		hideWait();
 		paint();
 	}
 
@@ -1547,12 +1707,14 @@
 		});
 	}
 
-	function pollPredictions() {
+	function pollPredictions(opts) {
+		var quiet = !!(opts && opts.quiet);
 		return readNamed(PRED_FILE).then(function (text) {
 			var cover;
 			if (!connected) return;
 			if (text === predText) {
 				paintFramePredict();
+				paintPrepare();
 				return;
 			}
 			predText = text;
@@ -1568,6 +1730,7 @@
 				return;
 			}
 			predWarned = "";
+			if (quiet && !hasUserAnnotations()) clearShownPredictions();
 			if (!predictionsApply()) {
 				clearShownPredictions();
 				paintFramePredict();
@@ -1578,6 +1741,7 @@
 			showForCurrent();
 			paintFramePredict();
 			paintTrainer();
+			if (quiet || prepareShown || (readyToastAt && Date.now() - readyToastAt < 4000)) return;
 			cover = predictionCoverage();
 			toast(cover ? "νέες προβλέψεις: frames " + cover.from + (cover.from === cover.to ? "" : "–" + cover.to) : "νέες προβλέψεις");
 		}).catch(function (err) {
