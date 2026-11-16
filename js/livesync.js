@@ -301,7 +301,7 @@
 	function predictionFrameCount(doc) {
 		var n = doc ? asCount(pick(doc, ["predicted_frames", "predictedFrames", "frame_count", "frameCount", "n_frames", "frames"])) : null;
 		if (n == null && doc && typeof doc.predictions === "number") n = doc.predictions;
-		if (n == null && predictionsApply() && predictions.images) n = Object.keys(predictions.images).length;
+		if (n == null && predictionsApply() && predictions.images) n = predictionKeysInFolder().length;
 		return n;
 	}
 
@@ -339,6 +339,7 @@
 		names = [];
 		for (key in images) {
 			if (!Object.prototype.hasOwnProperty.call(images, key) || !images[key]) continue;
+			if (!keyInOpenFolder(key)) continue;
 			img = images[key];
 			label = img.imageName || key;
 			stem = stemOf(label);
@@ -1393,20 +1394,67 @@
 		return base;
 	}
 
+	function dirPrefix(name) {
+		name = String(name || "").replace(/\\/g, "/");
+		var cut = name.lastIndexOf("/");
+		return cut < 0 ? "" : name.slice(0, cut);
+	}
+
+	function openImageSet() {
+		var set = {}, i, key, n = 0, list;
+		list = (typeof imIndices !== "undefined" && imIndices && imIndices.length) ? imIndices : null;
+		if (list) {
+			for (i = 0; i < list.length; i++) if (list[i]) { set[String(list[i])] = true; n++; }
+		} else if (typeof imAll !== "undefined" && imAll) {
+			for (key in imAll) if (Object.prototype.hasOwnProperty.call(imAll, key) && key) { set[String(key)] = true; n++; }
+		}
+		return n ? set : null;
+	}
+
+	function keyInOpenFolder(key) {
+		var set = openImageSet(), loaded, ps, ls, pd, ld;
+		if (!set) return true;
+		if (key == null || key === "") return false;
+		key = String(key);
+		if (set[key]) return true;
+		ps = stemOf(key);
+		pd = dirPrefix(key);
+		for (loaded in set) {
+			if (!Object.prototype.hasOwnProperty.call(set, loaded)) continue;
+			ls = stemOf(loaded);
+			if (!ps || ps !== ls) continue;
+			ld = dirPrefix(loaded);
+			if (pd === ld || !pd) return true;
+		}
+		return false;
+	}
+
+	function predictionKeysInFolder() {
+		var images, key, out = [];
+		if (!predictions || !predictions.images) return out;
+		images = predictions.images;
+		for (key in images) {
+			if (!Object.prototype.hasOwnProperty.call(images, key) || !images[key]) continue;
+			if (keyInOpenFolder(key)) out.push(key);
+		}
+		return out;
+	}
+
 	function findFrame(doc, name) {
 		if (!doc || !doc.images || !name) return null;
 		var images = doc.images;
-		if (images[name] && images[name].annotations) return images[name];
+		if (images[name] && images[name].annotations && keyInOpenFolder(name)) return images[name];
 		var bare = (typeof bareImageName === "function") ? bareImageName(name) : name;
-		if (bare !== name && images[bare] && images[bare].annotations) return images[bare];
+		if (bare !== name && images[bare] && images[bare].annotations && keyInOpenFolder(bare)) return images[bare];
 		var stem = stemOf(name);
 		var key, img, label, loose = null;
 		for (key in images) {
 			if (!images.hasOwnProperty(key) || !images[key]) continue;
+			if (!keyInOpenFolder(key)) continue;
 			img = images[key];
 			label = img.imageName || key;
 			if (label === name || key === name) return img;
-			if (stemOf(label) === stem || stemOf(key) === stem) { if (!loose) loose = img; }
+			if ((stemOf(label) === stem || stemOf(key) === stem) && !loose) loose = img;
 		}
 		return loose;
 	}
@@ -1475,10 +1523,12 @@
 	function predictionsApply() {
 		if (!predictions || typeof predictions !== "object") return false;
 		var tagged = predictions.project;
-		if (tagged == null || String(tagged) === "") return true;
-		var project = currentProject();
-		if (!project) return true;
-		return String(tagged) === String(project);
+		if (tagged != null && String(tagged) !== "") {
+			var project = currentProject();
+			if (project && String(tagged) !== String(project)) return false;
+		}
+		if (openImageSet() && !predictionKeysInFolder().length) return false;
+		return true;
 	}
 
 	function clearShownPredictions() {
@@ -1507,7 +1557,9 @@
 		n = list.length > 80 ? 80 : list.length;
 		for (i = 0; i < n; i++) {
 			poly = placeBox(list[i], frame.width, frame.height);
-			if (poly) shown.push(poly);
+			if (!poly) continue;
+			poly._liveFrame = imName;
+			shown.push(poly);
 		}
 		if (!shown.length) return;
 		renderUi();
@@ -1625,7 +1677,8 @@
 		x2 = sd.diag[0];
 		y2 = sd.diag[1];
 		name = (typeof imName !== "undefined" && imName) ? imName : "";
-		if (!name) return;
+		if (!name || !keyInOpenFolder(name)) return;
+		if (poly._liveFrame && !keyInOpenFolder(poly._liveFrame)) return;
 		entry = {
 			brand: ann.brand || "",
 			tpoint: ann.tpoint || "",
