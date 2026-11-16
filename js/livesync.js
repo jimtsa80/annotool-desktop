@@ -434,9 +434,23 @@
 		return (state === "idle" || state === "training") && predictionsPresent();
 	}
 
+	function foreignProject(doc) {
+		var tagged, open;
+		if (!doc || !Object.prototype.hasOwnProperty.call(doc, "project") || doc.project == null) return false;
+		tagged = String(doc.project).replace(/^\s+|\s+$/g, "");
+		open = String(currentProject() || "");
+		return !!(tagged && open && tagged !== open);
+	}
+
+	function trainerBusy(doc) {
+		return normState(pick(doc, ["state", "status"])) !== "idle";
+	}
+
 	function shouldShowWait(doc) {
 		var state;
-		if (!connected || !doc || prepareLatched || !statusForOpen(doc) || isReady(doc)) return false;
+		if (!connected || !doc || prepareLatched) return false;
+		if (foreignProject(doc)) return trainerBusy(doc);
+		if (!statusForOpen(doc) || isReady(doc)) return false;
 		state = normState(pick(doc, ["state", "status"]));
 		if (state === "training_family" || state === "waiting_gpu") return true;
 		if (state !== "predicting") return false;
@@ -444,11 +458,51 @@
 		return true;
 	}
 
+	function epochNumbers(doc) {
+		return {
+			cur: asNumber(pick(doc, ["epoch", "current_epoch", "epoch_index", "epochIndex"])),
+			total: asNumber(pick(doc, ["epochs", "epoch_total", "epochTotal", "num_epochs", "max_epochs", "n_epochs"]))
+		};
+	}
+
 	function epochSuffix(doc) {
-		var cur = asNumber(pick(doc, ["epoch", "current_epoch", "epoch_index", "epochIndex"]));
-		var total = asNumber(pick(doc, ["epochs", "epoch_total", "epochTotal", "num_epochs", "max_epochs", "n_epochs"]));
-		if (cur == null || total == null) return "";
-		return " (epoch " + cur + "/" + total + ")";
+		var n = epochNumbers(doc);
+		if (n.cur == null || n.total == null) return "";
+		return " (epoch " + n.cur + "/" + n.total + ")";
+	}
+
+	function epochPct(doc) {
+		var n = epochNumbers(doc);
+		if (n.cur != null && n.total != null && n.total > 0) return Math.max(0, Math.min(100, (n.cur / n.total) * 100));
+		return -1;
+	}
+
+	function statusUpdatedMs(doc) {
+		var v = pick(doc, ["updated_at", "updatedAt"]);
+		var n, d;
+		if (v == null || v === "") return null;
+		n = asNumber(v);
+		if (typeof v === "number" || (typeof v === "string" && n != null && String(v).trim() === String(n))) {
+			d = new Date(n < 1e12 ? n * 1000 : n);
+		} else d = new Date(v);
+		if (isNaN(d.getTime())) return null;
+		return d.getTime();
+	}
+
+	function statusIsStale(doc) {
+		var ms = statusUpdatedMs(doc);
+		return ms != null && (Date.now() - ms) > 120000;
+	}
+
+	function shortProject(name) {
+		var cut, cluster;
+		name = String(name == null ? "" : name).replace(/\\/g, "/").replace(/^\s+|\s+$/g, "");
+		cut = name.lastIndexOf("/");
+		if (cut !== -1) name = name.slice(cut + 1);
+		cluster = name.match(/^([^_]+_).+(-cluster_\d+)$/);
+		if (cluster && name.length > 28) return cluster[1] + "…" + cluster[2];
+		if (name.length <= 42) return name;
+		return name.slice(0, 16) + "…" + name.slice(-14);
 	}
 
 	function waitHost() {
@@ -483,12 +537,15 @@
 		var track = el.querySelector(".liveWaitTrack");
 		var fill = track.querySelector("i");
 		var done, total, pct = null;
-		if (state === "training_family") {
-			done = asNumber(pick(doc, ["epoch", "current_epoch", "epoch_index", "epochIndex"]));
-			total = asNumber(pick(doc, ["epochs", "epoch_total", "epochTotal", "num_epochs", "max_epochs", "n_epochs"]));
+		if (foreignProject(doc)) {
+			if (statusIsStale(doc)) text = "Ο trainer δεν απαντά";
+			else {
+				text = "Περίμενε… τελειώνω την εκπαίδευση από τον προηγούμενο φάκελο (" + shortProject(doc.project) + "), μετά θα τρέξει πρόβλεψη εδώ";
+				pct = epochPct(doc);
+			}
+		} else if (state === "training_family") {
 			text = "Περίμενε · εκπαιδεύεται το ενιαίο μοντέλο" + epochSuffix(doc);
-			if (done != null && total != null && total > 0) pct = Math.max(0, Math.min(100, (done / total) * 100));
-			else pct = -1;
+			pct = epochPct(doc);
 		} else if (state === "waiting_gpu") text = "Περίμενε · αναμονή για κάρτα γραφικών";
 		else {
 			done = asNumber(pick(doc, ["predicted_frames", "predictedFrames"]));
