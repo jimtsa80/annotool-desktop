@@ -1509,6 +1509,7 @@
 		payload.rejected = JSON.parse(JSON.stringify(rejected || {}));
 		payload.modelFamily = resolvedFamily();
 		payload.modelChoice = resolvedChoice();
+		if (typeof stripLockFlags === "function") stripLockFlags(payload.images);
 		return JSON.stringify(payload);
 	}
 

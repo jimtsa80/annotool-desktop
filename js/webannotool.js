@@ -818,6 +818,7 @@ activeCluster = "",
                 for (var n = 0, r = highlighted.length; n < r; n++) {
                     var q = highlighted[n],
                         l;
+                    if (boxIsLocked(q)) continue;
                     for (l in q.ancestors) q.ancestors.hasOwnProperty(l) && p.push(q.ancestors[l])
                 } else
                     for (l in c.ancestors) c.ancestors.hasOwnProperty(l) &&
@@ -827,6 +828,7 @@ activeCluster = "",
             c.getParents();
             var A = 0;
             brd.on("move", function(a) {
+                if (boxIsLocked(c)) return;
                 z = !0;
                 a = brd.getUsrCoordsOfMouse(a);
                 e.addPoints(p);
@@ -873,9 +875,11 @@ activeCluster = "",
                 p = [],
                 y = !1;
             if (-1 != highlighted.indexOf(c))
-                for (y = !0, n = 0, r = highlighted.length; n < r; n++)
-                    for (l in q =
-                        highlighted[n], q.ancestors) q.ancestors.hasOwnProperty(l) && p.push(q.ancestors[l]);
+                for (y = !0, n = 0, r = highlighted.length; n < r; n++) {
+                    q = highlighted[n];
+                    if (boxIsLocked(q)) continue;
+                    for (l in q.ancestors) q.ancestors.hasOwnProperty(l) && p.push(q.ancestors[l]);
+                }
             else
                 for (l in c.ancestors) c.ancestors.hasOwnProperty(l) && p.push(c.ancestors[l]);
             brd.renderer.highlight(c);
@@ -886,6 +890,7 @@ activeCluster = "",
             });
             A = 0;
             brd.on("move", function(a) {
+                if (boxIsLocked(c)) return;
                 A++;
                 z = !0;
                 a = brd.getUsrCoordsOfMouse(a);
@@ -1431,6 +1436,7 @@ function storeAnnotationImg() {
 			d.tpoint = tpointText(obj.annotation.tpoint);
 			d.hits = obj.annotation.hits;
 			if (obj.annotation.timestamp) d.timestamp = obj.annotation.timestamp;
+			if (obj.annotation.locked) d.locked = true;
 			a.annotations.push(d);
 		}
 	}
@@ -1464,16 +1470,21 @@ function loadAnnotationImg() {
             sy = imHeight / stored.height;
         }
         brd.suspendUpdate();
-        for (var b = 0, c = a.length; b < c; b++) createPolygon(
-            [a[b].startPoint[0] * sx, a[b].startPoint[1] * sy],
-            [a[b].diagPoint[0] * sx, a[b].diagPoint[1] * sy]
-        ).annotation = {
-            group: a[b].group,
-            brand: a[b].brand,
-            tpoint: tpointText(a[b].tpoint),
-            hits: a[b].hits,
-            timestamp: a[b].timestamp || ""
-        };
+        for (var b = 0, c = a.length; b < c; b++) {
+            var poly = createPolygon(
+                [a[b].startPoint[0] * sx, a[b].startPoint[1] * sy],
+                [a[b].diagPoint[0] * sx, a[b].diagPoint[1] * sy]
+            );
+            poly.annotation = {
+                group: a[b].group,
+                brand: a[b].brand,
+                tpoint: tpointText(a[b].tpoint),
+                hits: a[b].hits,
+                timestamp: a[b].timestamp || "",
+                locked: !!a[b].locked
+            };
+            if (poly.annotation.locked) applyBoxLock(poly);
+        }
         brd.unsuspendUpdate()
     }
 }
@@ -2005,12 +2016,45 @@ function storePreset(a) {
 	}
 }
 
+function boxIsLocked(poly) {
+	return !!(poly && poly.annotation && poly.annotation.locked);
+}
+
+function applyBoxLock(poly) {
+	var on = boxIsLocked(poly), i, k, pt;
+	if (!poly) return;
+	if (poly.borders) {
+		for (i = 0; i < poly.borders.length; i++) {
+			if (poly.borders[i] && poly.borders[i].setAttribute) poly.borders[i].setAttribute({ dash: on ? 2 : 0 });
+		}
+	}
+	if (poly.ancestors) {
+		for (k in poly.ancestors) {
+			pt = poly.ancestors[k];
+			if (pt && pt.setAttribute) pt.setAttribute({ fixed: !!on });
+		}
+	}
+}
+
+function toggleBoxLock() {
+	var list = highlighted, i, lock = false;
+	if (!list || !list.length) return;
+	for (i = 0; i < list.length; i++) if (!boxIsLocked(list[i])) lock = true;
+	for (i = 0; i < list.length; i++) {
+		if (!list[i] || !list[i].annotation) continue;
+		list[i].annotation.locked = lock;
+		applyBoxLock(list[i]);
+	}
+	storeAnnotationImg();
+}
+
 function storeD(a) {
     removePresetObj(a);
 	
 	for (var x = [], b = 0, c = highlighted.length; b < c; b++) {
 		var d = getPolyStartDiag(highlighted[b]),
 		e = highlighted[b].annotation;
+        if (e && e.locked) continue;
         d.annotation = {};
 			d.annotation.group = e.group;
 			d.annotation.brand = e.brand;

@@ -109,11 +109,23 @@ function imagesForDelivery(images) {
     return out;
 }
 
+function stripLockFlags(images) {
+    var name, list, i;
+    if (!images) return images;
+    for (name in images) {
+        if (!images.hasOwnProperty(name) || !images[name] || !images[name].annotations) continue;
+        list = images[name].annotations;
+        for (i = 0; i < list.length; i++) if (list[i]) delete list[i].locked;
+    }
+    return images;
+}
+
 function deliveryPayload() {
     var payload = JSON.parse(JSON.stringify(allAnnotations));
     stripLiveMeta(payload);
     payload.images = imagesForOpenFolder(payload.images);
     if (mergeOnExportEnabled()) payload.images = imagesForDelivery(payload.images);
+    stripLockFlags(payload.images);
     return payload;
 }
 
@@ -190,6 +202,7 @@ function saveClusterJson(name, stamp) {
     payload.project = name;
     payload.images = imagesForCluster(name);
     if (mergeOnExportEnabled()) payload.images = imagesForDelivery(payload.images);
+    stripLockFlags(payload.images);
     payload.prefs = JSON.parse(JSON.stringify(prefs));
     payload.prefs.projectName = name;
     saveAs(new Blob([JSON.stringify(payload)], { type: "application/json" }), exportBase(name, stamp) + ".json");
