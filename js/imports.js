@@ -50,9 +50,10 @@ fileInput.addEventListener("change", function(a) {
     function putFolderOnFile() {
         if (!folderName) return;
         prefs.projectRoot = folderName;
-        var shown = (typeof activeCluster !== "undefined" && activeCluster && clusterGroups) ? activeCluster : folderName;
+        var shown = (clusterGroups && activeCluster && clusterGroups[activeCluster]) ? activeCluster : folderName;
         prefs.projectName = shown;
         allAnnotations.project = shown;
+        if (window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(shown);
         var nameEl = document.getElementById("projectName");
         if (!nameEl) return;
         if (nameEl.tagName === "INPUT") nameEl.value = shown;
@@ -62,14 +63,17 @@ fileInput.addEventListener("change", function(a) {
 		msg1 = "CAUTION: The folder you have selected is different than the one you ", 
 		msg2 = " Are you sure you want to proceed ?", 
 		confirm(msg1 + msg2) && (
+			pendingFolderName = folderName,
 			initJSXBoard(), 
 			prefs.imgFoldername = b, 
 			putFolderOnFile(),
 			a.value = folderSelectionLabel(b))) : 
-			(initJSXBoard(), 
+			(pendingFolderName = folderName,
+			initJSXBoard(), 
 			putFolderOnFile(),
 			a.value = folderSelectionLabel(b)) : 
-			(initJSXBoard(), 
+			(pendingFolderName = folderName,
+			initJSXBoard(), 
 				prefs.imgFoldername = b, 
 				putFolderOnFile(),
 				a.value = folderSelectionLabel(b)
@@ -254,15 +258,40 @@ function readPrefsFile(a) {
 		tpfltrdata()
 		
 		checkConnsChanges()
-		allAnnotations.images = {};
-		allAnnotations.imageNum = 0;
-		allAnnotations.currentImage = "";
 		try { localStorage.allAnnotations = JSON.stringify(allAnnotations); } catch (eSave) {}
 		if (window.AnnoLive && AnnoLive.clearExposurePlan) AnnoLive.clearExposurePlan();
 		if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
 		$('#loadfiles').css('opacity','1')
     };
 	b.readAsText(a);
+}
+
+function paintSavedBrands() {
+	var i, key, br;
+	if (typeof prefs === "undefined" || !prefs || !prefs.groups || !prefs.groups.length || !prefs.conns) return;
+	$("#brands").html("<ul></ul>");
+	for (i = 0; i < prefs.groups.length; i++) {
+		$("#brands ul").append(
+			$("<li></li>")
+			.attr("id", prefs.groups[i])
+			.attr("class", "group")
+			.attr("value", prefs.groups[i])
+			.html("<h4>" + prefs.groups[i] + "</h4>")
+		);
+	}
+	$("#brands ul li").append("<ul></ul>");
+	for (key in prefs.conns) {
+		if (!prefs.conns.hasOwnProperty(key)) continue;
+		br = prefs.conns[key].brand;
+		$("#brands ul li").each(function () {
+			if ($(this).attr("id") == prefs.conns[key].group) {
+				$("ul", this).append($("<li></li>").attr("id", key).attr("value", br).text(br));
+			}
+		});
+	}
+	if (typeof disableGroups === "function") disableGroups();
+	if (typeof brandsInit === "function") brandsInit();
+	if (typeof tpfltrdata === "function") tpfltrdata();
 }
 
 newProjButton.addEventListener("click", function(a) {
@@ -274,7 +303,7 @@ function initProject() {
     msg1 = "ΠΡΟΣΟΧΗ: η ενέργεια αυτή θα αδειάσει την προσωρινή μνήμη του Chrome";
     msg2 = "Aν δεν έχεις σώσει τη δουλειά σου σε json τα δεδομένα θα χαθούν";
 	
-    confirm(msg1 +"\n"+ msg2) && confirm("είσαι σίγουρος/η ;") && (clearInterval(autosaveTimer), 
+    confirm(msg1 +"\n"+ msg2) && confirm("είσαι σίγουρος/η ;") && (window.AnnoSync && AnnoSync.noteCleared && AnnoSync.noteCleared(), clearInterval(autosaveTimer), 
     presets = {
 		'f1':[], 'f2':[], 'f3': [], 'f4': [], 'f5':[], 'f6':[], 'f7':[], 'f8':[], 'f9':[], 'f10':[], 'f11':[], 'f12':[],
 		'alt+f1':[], 'alt+f2':[], 'alt+f3': [], 'alt+f4': [], 'alt+f5':[], 'alt+f6':[], 'alt+f7':[], 'alt+f8':[], 'alt+f9':[], 'alt+f10':[], 'alt+f11':[], 'alt+f12':[],

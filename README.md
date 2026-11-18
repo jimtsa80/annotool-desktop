@@ -1,0 +1,156 @@
+# Annotool
+
+Browser tool for annotating sports-broadcast frames (brand, location, hits). The copy on GitHub Pages does not include this branch until it is merged.
+
+## Run locally
+
+The folder picker needs a secure page. `http://localhost` counts. Opening the HTML file directly (`file://`) does not.
+
+From this folder:
+
+```bash
+python -m http.server 8000
+```
+
+Open http://localhost:8000 in Chrome or Edge. Load the preferences file and the images folder as usual, then press **Ζωντανά** and choose a folder the assistant can read and write. The choice is remembered in this browser. Next time, **Σύνδεση** grants access again if the browser asks. A red dot and **εκτός** mean sync is off. A green dot and **συνδεδεμένο** mean the folder is live. Right-click **Ζωντανά** to pick a different folder. Firefox and Safari have no folder picker; the control then shows a short note.
+
+While the folder is connected, the tool writes `annotool_live.json` about 2.5 seconds after a change and on every autosave (60s). It reads `annotool_predictions.json` from the same folder about every 2 seconds.
+
+## Live file (`annotool_live.json`)
+
+Same object `downloadAnnotations` stores, one box per logo instance (this is the training file). `convert_to_yolo.py` reads `images`, `width`, `height`, `imageName`, and each annotation's `startPoint`, `diagPoint`, `brand`, and `tpoint`. Three extra fields sit next to that object. They are not part of a delivery download.
+
+| Field | Meaning |
+| --- | --- |
+| `syncedAt` | ISO-8601 time of this write |
+| `currentImage` | Frame open right now (already part of the export). Filename stem, or `folder/stem` when several folders are open |
+| `currentImageIndex` | Index of that frame in the current folder |
+| `reviewed` | Frames the annotator has left with Next, Prev, S, or A. The open frame is not in this list |
+| `rejected` | Predicted boxes the annotator rejected or deleted, per frame. Not in the delivery download |
+| `modelFamily` | Family the trainer should use. Defaults to the project's first group |
+| `modelChoice` | `continue`, `new`, or `from:<family>`. Not in the delivery download |
+
+A frame in `reviewed` with no entry in `images` was looked at and left empty: use it as a negative. A frame in neither `reviewed` nor `images` has not been finished: ignore it. Frames skipped with Shift+S are not reviewed.
+
+`reviewed` is kept per project (`annotool.reviewed:<project>` in this browser). Loading another frames folder sets `project` to that folder (or its cluster) immediately, writes the live file, and starts that folder's own reviewed list. The previous folder's names stay under its own key.
+
+A refresh reads saved boxes from `localStorage` key `allAnnotations` (the `images` field) before the live file is written. Reloading the preferences file keeps those boxes, and the brand list is rebuilt from the saved preferences, so a refresh does not require loading the preferences file again. Nothing is written until that restore has finished and a frames folder is open. Reviewed names from this browser and from the live file are kept together; a reviewed frame with no box stays a negative. Opening a different frames folder keeps the previous folder's boxes under `annotool.annotations:<project>` and loads only that folder's own boxes. JSON and CSV downloads include only frames in the folder that is open. When this browser adds many of those empty frames, a one-time notice says how many will count as negatives and offers **Καθάρισέ τα** to drop them. An empty `images` object is not written over a live file that still has boxes for the same project, unless the annotator confirmed emptying the project.
+
+Image keys and `imageName` are the filename stem (no extension). `width` and `height` are the tool canvas size, not necessarily the file's pixel size. `startPoint` is `[x, y]` and `diagPoint` is the opposite corner, in that canvas, origin at the top-left, y downward. `hits` on a live box is the hits on that one instance (1 when each logo was drawn separately).
+
+```json
+{
+  "project": "match",
+  "imageNum": 2,
+  "prefs": {},
+  "images": {
+    "00012": {
+      "imageName": "00012",
+      "imageIndex": 0,
+      "width": 960,
+      "height": 540,
+      "annotations": [
+        {
+          "startPoint": [120, 400],
+          "diagPoint": [280, 470],
+          "group": "",
+          "brand": "Adidas",
+          "tpoint": "LED",
+          "hits": 1,
+          "timestamp": "2026-11-14T12:00:00.000Z"
+        },
+        {
+          "startPoint": [300, 400],
+          "diagPoint": [460, 470],
+          "group": "",
+          "brand": "Adidas",
+          "tpoint": "LED",
+          "hits": 1,
+          "timestamp": "2026-11-14T12:00:01.000Z"
+        }
+      ]
+    }
+  },
+  "currentImage": "00013",
+  "presets": {},
+  "Annotator": "ada",
+  "syncedAt": "2026-11-14T17:20:00.000Z",
+  "currentImageIndex": 1,
+  "reviewed": ["00012"],
+  "modelFamily": "RLWC",
+  "modelChoice": "continue",
+  "rejected": {
+    "00012": [
+      {
+        "brand": "Nike",
+        "tpoint": "Board",
+        "x": 500,
+        "y": 80,
+        "width": 90,
+        "height": 40,
+        "confidence": 0.62
+      }
+    ]
+  }
+}
+```
+
+The file is written with one `createWritable` / `close`, so a reader does not see a half-written body. If a parse fails, read it again.
+
+`rejected` is the hard-negative list, kept per project the same way as `reviewed` (`annotool.rejected:<project>` in this browser). It is not part of the delivery download. Each time the annotator presses **Όχι** or **Καμία**, or deletes a predicted box, that box is appended under its frame name:
+
+| Field | Meaning |
+| --- | --- |
+| `brand`, `tpoint` | The prediction's label |
+| `x`, `y` | Top-left of the box, canvas pixels, same space as `startPoint` (origin top-left, y downward) |
+| `width`, `height` | Box size in that same canvas |
+| `confidence` | The prediction's confidence, or `null` if it had none |
+
+Leaving a frame does not by itself add a row: Next, Prev, S, and A accept the pending suggestions instead, and Shift+S leaves them pending. Only **Όχι**, **Καμία**, and deleting a predicted box write `rejected`. Switching folders does not copy another project's rejections. The trainer can treat these boxes as hard negatives.
+
+## Predictions file (`annotool_predictions.json`)
+
+Same shape `predict_to_json.py` writes (a normal annotool JSON). Drop that script's output in the sync folder under this name. No conversion.
+
+Each annotation is `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, in the canvas given by that image's `width` and `height`. `confidence` (or `conf`) is optional and is only shown on the suggestion. Image keys are filename stems, matching `imageName`.
+
+When the annotator lands on a frame that has no boxes yet, each predicted annotation is drawn as its own suggestion. If the file has a `project` field and it is not the open folder, those boxes are ignored. A prediction key that is not in the open folder's loaded image list is ignored as well, even when the file's `project` already names this folder. If none of the keys are in that list, the file is treated as foreign: nothing is drawn, and the prepare banner keeps saying that predictions are on the way. **Όχι** does not record a rejection for an image that is not in the open folder. Switching folders clears suggestions from the previous one. Two rows with the same brand and location stay two boxes (`hits` kept from each row, usually 1). Nothing is written over a frame that already has annotations. **Όλες** accepts every suggestion, **Ναι** accepts one, **Όχι** or **Καμία** rejects. Drag a box, then accept it. Accepted boxes become normal annotations.
+
+**αυτόματη αποδοχή** sits next to **συγχώνευση**, on by default, and is remembered in this browser (`annotool.autoAccept`). While it is on, leaving a frame with Next, Prev, S, or A accepts every suggestion that is still pending, the same as pressing **Ναι** on each one. Those boxes are normal annotations after that: they are in the live file and in the delivery export. A box already rejected or deleted stays in `rejected` and is not accepted. Shift+S skips the frame: nothing is accepted, and the frame is not added to `reviewed`. Uncheck the box to leave pending suggestions untouched. **Μεταφορά** still copies every box on the frame, including ones just accepted, onto the next frame when that toggle is on.
+
+A pre-merged prediction (one row whose `hits` is already the count) is one box with that hits value. For per-instance suggestions, write one annotation per logo (`--no-dedupe-brand-tpoint`). See `examples/annotool_predictions.json`.
+
+The open frame shows whether that file covers it: **πρόβλεψη**, **χωρίς πρόβλεψη**, or **μπροστά από το μοντέλο** when its number is past the covered range. A short toast appears when the predictions file changes. The covered span is shown as `Προβλέψεις: frames 03250–03400`, from the image keys, or from `predicted_from` / `predicted_to` on the trainer status when those are set.
+
+## Trainer status (`live_trainer_status.json`)
+
+Optional file in the same folder, written by the trainer. While **Ζωντανά** is connected the tool reads it every couple of seconds. If the file is missing, this part of the indicator stays empty. Unknown fields are ignored. Missing ones are skipped.
+
+| Field | Meaning |
+| --- | --- |
+| `state` | `idle`, `training`, `predicting`, and, while a folder is being prepared, `training_family`, `searching`, or `waiting_gpu` |
+| `cycle` | Training cycle |
+| `reviewed` | Reviewed frames the trainer has counted |
+| `reviewed_since_last_cycle` and `threshold` | Progress toward the next cycle, shown as `40/80` when both are present |
+| `classes` | Class count (or a list) |
+| `last_map50` | Last mAP50 |
+| `updated_at` | When this status was written |
+| `last_error` | Short Greek note in red. The original text is only on the tooltip. Empty or null hides it. `CUDA … out of memory` becomes `Η κάρτα γραφικών γέμισε μνήμη – ο trainer θα ξαναδοκιμάσει αυτόματα`. `none of the reviewed names matched a jpg` and `frames folder not found` become `Ο trainer δεν βρίσκει τις εικόνες του φακέλου`. Anything else is `Πρόβλημα στον trainer – δείτε το παράθυρο του trainer`. A later status with a higher `cycle`, or a move into idle or predicting, hides an error that is still in the file |
+| `predicted_from`, `predicted_to` | Frame span of the current predictions, if the trainer sets them |
+| `model_family`, `model_mode` | Shown as `Μοντέλο: yolo11 (finetune)` |
+| `families` | Names offered in **συνέχεια από…**. Without this list the annotator types a name |
+| `per_class_map50` | One score per brand and location. An object of name → score, a name → `{map50, instances, frames}`, or a list of `{class, map50}`. Optional `per_class_instances` and `per_class_frames` objects supply the counts when they are not on the score |
+
+While a folder is still being prepared, a banner covers the image and the status line stays visible. Navigation (Αρχή, Prev, Next, Τέλος) still works. `training_family` says `Περίμενε · εκπαιδεύεται το ενιαίο μοντέλο (epoch x/y)` when both epoch numbers are present, and the same bar fills by `epoch/epochs`. If either number is missing, the text has no fraction and the bar slides instead of filling. `predicting` says `Περίμενε · βγαίνουν προβλέψεις (predicted_frames/predict_total)` and draws a progress bar when both counts are present. `waiting_gpu` says `Περίμενε · αναμονή για κάρτα γραφικών`. `searching` says `Ψάχνω τον φάκελο των frames…` and the bar slides. The banner is shown when `project` matches the open folder, or when `project` is null just after a switch. If `project` names a different folder and the state is anything other than idle, ready, or done, the banner stays up with the epoch bar and says `Περίμενε… τελειώνω την εκπαίδευση από τον προηγούμενο φάκελο (<name>), μετά θα τρέξει πρόβλεψη εδώ`. A long folder name keeps its start and its `-cluster_N` ending. If `updated_at` on that status is older than about 2 minutes, the banner says `Ο trainer δεν απαντά` and the bar is hidden. When the status file switches to the open folder, the usual predicting bar and `Έτοιμο · ξεκίνα` toast follow. When `ready_for_user` becomes true, or the state is `idle` or `training` and this folder already has predictions, the banner goes away, a short `Έτοιμο · ξεκίνα` toast appears, and the predictions file is read again. Later training cycles only use the status line. An older status file that lacks these keys does not show the banner once predictions are already there.
+
+The status line keeps the overall mAP only (`mAP 0.42`). The per-class list is the **mAP50** button next to **Συνδυασμοί**. It opens a panel titled `mAP50 ανά συνδυασμό`, with the same open, close, and drag behaviour as the combinations panel, and the choice is remembered (`annotool.mapPanelOpen`). Each row is one brand and location, the mAP50 to three decimals, and the training instances and frames when the status has them. Green is 0.98 or higher, amber is 0.80 up to 0.98, red is below 0.80. A combination with no score yet shows `—`. The header says which cycle and time the numbers come from. Rows are sorted by mAP50, highest first.
+
+`Εκπαίδευση… κύκλος 2` is training. `Προβλέψεις έτοιμες: 150 frames` is idle after a predict, using `predicted_frames` or the number of images in the predictions file. See `examples/live_trainer_status.json`.
+
+Next to the model line is **συνέχεια** / **νέο μοντέλο** / **συνέχεια από…**. The choice is written on `annotool_live.json` as `modelChoice` (`continue`, `new`, or `from:<family>`) and `modelFamily`. `modelFamily` is the project's first group, unless the choice is `from:<family>`, in which case it is that family. Both are remembered per project in this browser (`annotool.model:<project>`) and are left out of the delivery download.
+
+## Merge on export
+
+**συγχώνευση** (on by default) applies only to json / photos.csv / video.csv / news.csv.
+
+On a frame, rows with the same `brand` and `tpoint` become one annotation. The rectangle is the highest `confidence` instance. With no confidence, or a tie, the earliest box is kept. `hits` is the sum of the instances' hits, so three `hits: 1` boxes become `hits: 3`, and one older box that already stored `hits: 5` stays 5. The downloaded annotation has the usual keys only: `startPoint`, `diagPoint`, `group`, `brand`, `tpoint`, `hits`, and `timestamp` when the kept box had one. `syncedAt`, `reviewed`, `rejected`, `modelFamily`, `modelChoice`, and `currentImageIndex` are left out of the download. The browser autosave keeps every instance.

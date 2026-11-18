@@ -20,9 +20,9 @@
 	<link rel="stylesheet" href="css/libs/buttons.dataTables.min.css" />
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Didact+Gothic&amp;subset=greek">
 	<link rel="stylesheet" href="css/webannotool.min.css?v=3" rel="stylesheet">
-	<link rel="stylesheet" href="css/livehud.css?v=17">
+	<link rel="stylesheet" href="css/livehud.css?v=18">
 	<link rel="stylesheet" href="css/video.css" id="workspace-css">
-	<link rel="stylesheet" href="css/modern.css?v=22">
+	<link rel="stylesheet" href="css/modern.css?v=33">
 	
 
 
@@ -71,6 +71,12 @@
 				<h4>Export : </h4>
 				<label for="scrloc"><input id="scrloc" type="checkbox" value="scrloc"> location ?</label>
 			</div>
+			<label id="mergeOnExportLabel" for="mergeOnExport" title="στην εξαγωγή, ίδια brand+location γίνονται ένα annotation και τα hits το πλήθος. Το ζωντανό αρχείο κρατάει κάθε κουτί.">
+				<input id="mergeOnExport" type="checkbox" checked> συγχώνευση
+			</label>
+			<label id="autoAcceptLabel" for="autoAccept" title="με Next, Prev, S ή A, οι προβλέψεις που μένουν γίνονται κανονικά κουτιά. Όχι και Καμία μένουν απορριφθείσες. Το Shift+S δεν δέχεται τίποτα.">
+				<input id="autoAccept" type="checkbox" checked> αυτόματη αποδοχή
+			</label>
 			<div id="generationButtons" class="btn-group" role="group">
 				<button id="downloadAnn" type="button" class="btn btn-success btn-sm shadow" onclick="downloadAnnotations();">json</button>
 				<button id="generatePhotoCSV" type="button" class="btn btn-success btn-sm shadow" onclick="generatePhotoCSV();">photos.csv</button>
@@ -95,19 +101,43 @@
 			<label id="carryToggle" title="φέρνει τα κουτιά της εικόνας στην επόμενη, για να τα προσαρμόσεις">
 				<input id="carryBoxes" type="checkbox"> Μεταφορά
 			</label>
+			<span id="liveSync" title="γράφει annotool_live.json και διαβάζει annotool_predictions.json και live_trainer_status.json">
+				<button type="button" id="liveSyncBtn" title="σύνδεση φακέλου. Δεξί κλικ: άλλος φάκελος">Ζωντανά</button>
+				<i id="liveSyncDot" aria-hidden="true"></i>
+				<span id="liveSyncState">εκτός</span>
+				<span id="liveTrainer" hidden>
+					<span id="liveTrainerMain"></span>
+					<span id="liveTrainerRange"></span>
+					<span id="liveTrainerProg"></span>
+					<span id="liveTrainerMap"></span>
+					<span id="liveTrainerTime"></span>
+					<span id="liveTrainerModel" hidden></span>
+					<label id="liveModelChoiceLabel" title="τι μοντέλο να συνεχίσει ο trainer">
+						<select id="liveModelChoice">
+							<option value="continue">συνέχεια</option>
+							<option value="new">νέο μοντέλο</option>
+							<option value="from">συνέχεια από…</option>
+						</select>
+						<input id="liveModelFromText" type="text" hidden placeholder="οικογένεια" autocomplete="off">
+					</label>
+					<span id="liveTrainerPerClass" hidden></span>
+					<span id="liveTrainerErr"></span>
+				</span>
+			</span>
 			
 			<span id="resizefname">
-				<button id="lastButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadLastImg();">Τέλος</button>
-				<button id="nextButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadNextImg();">Next</button>
-				<button id="prevButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadPrevImg();">Prev</button>
 				<button id="firstButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadFirstImg();">Αρχή</button>
-				<input id="imageName" type="text" size="1" class="form-control input-sm shadow">
+				<button id="prevButton" type="button" class="btn btn-info btn-xs shadow" onclick="loadPrevImg();">Prev</button>
+				<input id="imageName" type="text" class="form-control input-sm shadow" title="αριθμός καρέ. Πάτα Enter για να πας εκεί" autocomplete="off" spellcheck="false">
+				<button id="nextButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadNextImg();">Next</button>
+				<button id="lastButton" type="button" class="btn btn-primary btn-xs shadow" onclick="loadLastImg();">Τέλος</button>
 				<select id="clusterPick" title="φάκελος"></select>
 			</span>
 		</div>
 	</div>
 	<div id="comboGlance">
 		<button type="button" id="comboGlanceOpen">Συνδυασμοί</button>
+		<button type="button" id="mapGlanceOpen" title="mAP50 ανά συνδυασμό">mAP50</button>
 		<div id="comboGlanceBody">
 			<div id="comboView">
 				<button type="button" id="comboViewBtn" title="ποιες εικόνες δείχνει το επόμενο">όλες οι εικόνες</button>
@@ -380,12 +410,12 @@
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap.js"></script>
 	<script type="text/javascript" src="js/libs/mousetrap/mousetrap-pause.js"></script>
     <script type="text/javascript" src="js/libs/mousetrap/mousetrap-bind-dictionary.min.js"></script>	
-    <script type="text/javascript" src="js/webannotool.js?v=31"></script>
-	<script type="text/javascript" src="js/keyboard.js?v=8"></script>
-	<script type="text/javascript" src="js/imports.js?v=11"></script>
-	<script type="text/javascript" src="js/exports.js?v=5"></script>
+	<script type="text/javascript" src="js/webannotool.js?v=36"></script>
+	<script type="text/javascript" src="js/keyboard.js?v=9"></script>
+	<script type="text/javascript" src="js/imports.js?v=14"></script>
+	<script type="text/javascript" src="js/exports.js?v=10"></script>
 	<script type="text/javascript" src="js/filters.js?v=4"></script>
-	<script type="text/javascript" src="js/tools.js?v=8"></script>
+	<script type="text/javascript" src="js/tools.js?v=9"></script>
 	<script type="text/javascript" src="js/mydatatables.js"></script>
 	<script type="text/javascript" src="js/colors.js"></script>
 	<div id="comboPanel" aria-hidden="true">
@@ -408,11 +438,22 @@
 		<div id="comboEmpty">Ακόμα δεν υπάρχει κανένας συνδυασμός.</div>
 		<div id="comboPanelFoot">Οι εικόνες διαλέγονται από το πλαίσιο πάνω: ψάξε, τσέκαρε όσους θες, ή πάτα όλες οι εικόνες. Ο στόχος μένει αποθηκευμένος σε αυτό το project.</div>
 	</div>
+	<div id="mapPanel" aria-hidden="true">
+		<div id="mapPanelHead">
+			<div id="mapPanelTitle">mAP50 ανά συνδυασμό <span id="mapPanelCount"></span></div>
+			<button type="button" id="mapPanelClose" title="κλείσιμο">×</button>
+		</div>
+		<div id="mapPanelWhen"></div>
+		<div id="mapList"></div>
+		<div id="mapEmpty">Ο trainer δεν έχει στείλει ακόμα mAP50.</div>
+		<div id="mapPanelFoot">πράσινο από 0.98 · κίτρινο 0.80–0.98 · κόκκινο κάτω από 0.80</div>
+	</div>
 
 	<script type="text/javascript" src="js/compare.js"></script>
-	<script type="text/javascript" src="js/livehud.js?v=22"></script>
-	<script type="text/javascript" src="js/suggest.js?v=15"></script>
-	<script type="text/javascript" src="js/anno.js?v=2"></script>
+	<script type="text/javascript" src="js/livehud.js?v=23"></script>
+	<script type="text/javascript" src="js/suggest.js?v=16"></script>
+	<script type="text/javascript" src="js/livesync.js?v=16"></script>
+	<script type="text/javascript" src="js/anno.js?v=3"></script>
 	<script>
 	(function () {
 		var root = document.documentElement;

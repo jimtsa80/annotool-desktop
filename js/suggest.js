@@ -413,7 +413,7 @@
 				var list = brd.objectsList, i, obj;
 				for (i = 0; i < list.length; i++) {
 					obj = list[i];
-					if (!obj || !obj.getType || obj.getType() !== "polygon") continue;
+					if (!obj || !obj.getType || obj.getType() !== "polygon" || obj._liveSuggest) continue;
 					if (obj.getAttribute && obj.getAttribute("visible") === false) continue;
 					learnPoly(obj, image);
 				}

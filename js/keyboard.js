@@ -132,7 +132,7 @@ Mousetrap.bind({
 	'q': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  pastePreset('q') } ,
 	'w': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  pastePreset('w') } ,
 	'e': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  pastePreset('e') } ,
-	'r': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  pastePreset('r') } ,
+	'r': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  if (highlighted.length) toggleBoxLock(); else pastePreset('r'); } ,
 	't': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  pastePreset('t') } ,
 	'y': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  pastePreset('y') } ,
     'u': function(a) { a.preventDefault ? a.preventDefault() : a.returnValue = !1;  pastePreset('u') },

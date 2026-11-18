@@ -1,0 +1,20 @@
+{
+  "state": "training",
+  "cycle": 2,
+  "reviewed": 150,
+  "reviewed_since_last_cycle": 40,
+  "threshold": 80,
+  "classes": 12,
+  "last_map50": 0.42,
+  "updated_at": "2026-11-14T18:05:00.000Z",
+  "last_error": null,
+  "predicted_from": "03250",
+  "predicted_to": "03400",
+  "model_family": "yolo11",
+  "model_mode": "finetune",
+  "families": ["yolo11", "yolo8"],
+  "per_class_map50": {
+    "Adidas|LED": { "map50": 0.81, "instances": 24, "frames": 11 },
+    "Nike|Board": 0.44
+  }
+}

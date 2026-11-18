@@ -1,4 +1,143 @@
 
+// Delivery export merges same brand+tpoint on a frame into one annotation.
+// Geometry is the highest-confidence instance (earliest box when confidence
+// is missing or tied), matching predict_to_json.dedupe_brand_tpoint.
+// hits is the sum of the instances' hits, so hits=1 boxes become a count
+// and a single legacy box keeps the hits it already stored.
+// The live file and localStorage stay per-instance; only the download is merged.
+function mergeOnExportEnabled() {
+    var box = document.getElementById("mergeOnExport");
+    if (box) return !!box.checked;
+    try { return localStorage.getItem("annotool.mergeOnExport") !== "0"; }
+    catch (err) { return true; }
+}
+
+function annotationConfidence(ann) {
+    if (!ann) return null;
+    var c = ann.confidence;
+    if ((c === undefined || c === null || c === "") && ann.conf != null) c = ann.conf;
+    if (typeof c === "string") c = parseFloat(c);
+    if (typeof c === "number" && isFinite(c)) return c;
+    return null;
+}
+
+function instanceHits(ann) {
+    var h = parseInt(ann && ann.hits, 10);
+    return h >= 1 ? h : 1;
+}
+
+function deliveryAnnotation(ann, hits) {
+    var out = {
+        startPoint: ann.startPoint,
+        diagPoint: ann.diagPoint,
+        group: ann.group,
+        brand: ann.brand,
+        tpoint: ann.tpoint,
+        hits: hits
+    };
+    if (ann.timestamp) out.timestamp = ann.timestamp;
+    return out;
+}
+
+function mergeFrameAnnotations(list) {
+    var order = [], groups = {}, i, ann, key, items, best, bestC, c, hits, j, out = [];
+    list = list || [];
+    for (i = 0; i < list.length; i++) {
+        ann = list[i];
+        if (!ann) continue;
+        key = String(ann.brand) + "\0" + String(ann.tpoint);
+        if (!groups[key]) {
+            groups[key] = [];
+            order.push(key);
+        }
+        groups[key].push(ann);
+    }
+    for (i = 0; i < order.length; i++) {
+        items = groups[order[i]];
+        best = items[0];
+        bestC = annotationConfidence(best);
+        for (j = 1; j < items.length; j++) {
+            c = annotationConfidence(items[j]);
+            if (c == null) continue;
+            if (bestC == null || c > bestC) {
+                best = items[j];
+                bestC = c;
+            }
+        }
+        hits = 0;
+        for (j = 0; j < items.length; j++) hits += instanceHits(items[j]);
+        out.push(deliveryAnnotation(best, hits));
+    }
+    return out;
+}
+
+function stripLiveMeta(doc) {
+    if (!doc) return doc;
+    delete doc.syncedAt;
+    delete doc.reviewed;
+    delete doc.rejected;
+    delete doc.modelFamily;
+    delete doc.modelChoice;
+    delete doc.currentImageIndex;
+    return doc;
+}
+
+function imagesForOpenFolder(images) {
+    var set = {}, out = {}, i, key;
+    images = images || {};
+    if (typeof imIndices === "undefined" || !imIndices || !imIndices.length) return {};
+    for (i = 0; i < imIndices.length; i++) if (imIndices[i]) set[imIndices[i]] = 1;
+    for (key in images) {
+        if (!Object.prototype.hasOwnProperty.call(images, key) || !set[key]) continue;
+        out[key] = images[key];
+    }
+    return out;
+}
+
+function imagesForDelivery(images) {
+    var out = {}, name, copy, k;
+    images = images || {};
+    if (!mergeOnExportEnabled()) return images;
+    for (name in images) {
+        if (!images.hasOwnProperty(name)) continue;
+        if (!images[name]) { out[name] = images[name]; continue; }
+        copy = {};
+        for (k in images[name]) if (images[name].hasOwnProperty(k)) copy[k] = images[name][k];
+        copy.annotations = mergeFrameAnnotations(images[name].annotations || []);
+        out[name] = copy;
+    }
+    return out;
+}
+
+function stripLockFlags(images) {
+    var name, list, i;
+    if (!images) return images;
+    for (name in images) {
+        if (!images.hasOwnProperty(name) || !images[name] || !images[name].annotations) continue;
+        list = images[name].annotations;
+        for (i = 0; i < list.length; i++) if (list[i]) delete list[i].locked;
+    }
+    return images;
+}
+
+function deliveryPayload() {
+    var payload = JSON.parse(JSON.stringify(allAnnotations));
+    stripLiveMeta(payload);
+    payload.images = imagesForOpenFolder(payload.images);
+    if (mergeOnExportEnabled()) payload.images = imagesForDelivery(payload.images);
+    stripLockFlags(payload.images);
+    return payload;
+}
+
+function withDeliveryImages(fn) {
+    var saved = allAnnotations.images;
+    var images = imagesForOpenFolder(saved);
+    if (mergeOnExportEnabled()) images = imagesForDelivery(images);
+    allAnnotations.images = images;
+    try { return fn(); }
+    finally { allAnnotations.images = saved; }
+}
+
 function downloadAnnotations() {
     if (0 < nullAnnoFlag){ 
 		return new Noty({ type: 'error', theme: 'mint', layout: 'topRight',  text: 'έχεις NULL',  timeout: 1000,  closeWith: ['click', 'button'],}).show();
@@ -15,18 +154,23 @@ function downloadAnnotations() {
         return;
     }
 
-    var a = JSON.stringify(allAnnotations);
-    localStorage.allAnnotations = a;
-    a = new Blob([a], {
+    var raw = JSON.stringify(allAnnotations);
+    localStorage.allAnnotations = raw;
+    var delivered = JSON.stringify(deliveryPayload());
+    saveAs(new Blob([delivered], {
         type: "application/json"
-    });
-    saveAs(a, allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + ".json");
+    }), allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + ".json");
 }
 
 function imagesForCluster(name) {
-    var prefix = name + "/", images = allAnnotations.images || {}, out = {}, key, copy, bare;
+    var prefix = name + "/", images = allAnnotations.images || {}, out = {}, key, copy, bare, allowed = null, i;
+    if (typeof clusterGroups !== "undefined" && clusterGroups && clusterGroups[name] && clusterGroups[name].keys) {
+        allowed = {};
+        for (i = 0; i < clusterGroups[name].keys.length; i++) allowed[clusterGroups[name].keys[i]] = 1;
+    }
     for (key in images) {
         if (!images.hasOwnProperty(key) || key.indexOf(prefix) !== 0) continue;
+        if (allowed && !allowed[key]) continue;
         if (!images[key] || !images[key].annotations || !images[key].annotations.length) continue;
         bare = key.slice(prefix.length);
         copy = JSON.parse(JSON.stringify(images[key]));
@@ -54,8 +198,11 @@ function exportBase(cluster, stamp) {
 
 function saveClusterJson(name, stamp) {
     var payload = JSON.parse(JSON.stringify(allAnnotations));
+    stripLiveMeta(payload);
     payload.project = name;
     payload.images = imagesForCluster(name);
+    if (mergeOnExportEnabled()) payload.images = imagesForDelivery(payload.images);
+    stripLockFlags(payload.images);
     payload.prefs = JSON.parse(JSON.stringify(prefs));
     payload.prefs.projectName = name;
     saveAs(new Blob([JSON.stringify(payload)], { type: "application/json" }), exportBase(name, stamp) + ".json");
@@ -63,7 +210,9 @@ function saveClusterJson(name, stamp) {
 
 function saveClusterCsv(name, stamp) {
     var saved = allAnnotations.images;
-    allAnnotations.images = imagesForCluster(name);
+    var images = imagesForCluster(name);
+    if (mergeOnExportEnabled()) images = imagesForDelivery(images);
+    allAnnotations.images = images;
     var output;
     try { output = videoCsvOutput(); }
     finally { allAnnotations.images = saved; }
@@ -147,7 +296,7 @@ function generateVideoCSV(){
         downloadOpenedClusters(false);
         return;
     }
-	var output = videoCsvOutput();
+	var output = withDeliveryImages(videoCsvOutput);
 	window.URL = window.webkitURL || window.URL;
 	saveAs(new Blob([output], {type: 'text/csv'}), allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + "-Video.csv");
 }
@@ -231,7 +380,7 @@ function generatePhotoCSV() {
                                 q; r++) c[b[r]] || (c[b[r]] = []), c[b[r]].push(n)
                 },
                 f = allAnnotations.images[e].width * allAnnotations.images[e].height,
-                h = allAnnotations.images[e].annotations,
+                h = mergeOnExportEnabled() ? mergeFrameAnnotations(allAnnotations.images[e].annotations) : allAnnotations.images[e].annotations,
                 k = {};
             allAnnotations.images[e].exifdata ? (k = allAnnotations.images[e].exifdata, g(), d < imIndices.length - 1 ? a(d + 1) : b()) : EXIF.getData(imAll[e], function() {
                 k = allAnnotations.images[e].exifdata = this.exifdata;
@@ -286,6 +435,10 @@ function generateNewsCSV() { //old news format
     $("#generateNewsCSV").blur();
     if ("" == $("#projectFolder").val()) return !1;
     storeAnnotationImg();
+    var savedNewsImages = allAnnotations.images;
+    allAnnotations.images = imagesForOpenFolder(savedNewsImages);
+    if (mergeOnExportEnabled()) allAnnotations.images = imagesForDelivery(allAnnotations.images);
+    try {
     var b = "video";
         d = allAnnotations.project.split("_"),
         c = d[d.length - 1] || "0000",
@@ -366,6 +519,7 @@ function generateNewsCSV() { //old news format
 	var contentType = 'text/csv';
 	var csvFile = new Blob([c], {type: contentType});
 	saveAs(csvFile, allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + "-News.csv"); //v24.8
+    } finally { allAnnotations.images = savedNewsImages; }
 }
 
 function generateNewsCSV_3(){ //from video.csv
@@ -373,7 +527,10 @@ function generateNewsCSV_3(){ //from video.csv
 	var a=[];$("#generateNewsCSV").blur();
 	if(""==$("#projectFolder").val())return!1;
 	storeAnnotationImg();
-	
+	var savedNews3 = allAnnotations.images;
+	allAnnotations.images = imagesForOpenFolder(savedNews3);
+	if (mergeOnExportEnabled()) allAnnotations.images = imagesForDelivery(allAnnotations.images);
+	try {
 	var hm=allAnnotations.project.split("_"),
 	hm=hm[hm.length-1]||"0000", // gives 4 last digits OR 0000 if hm is false
 	c=isNaN(hour24ToSecs(hm))?0:hour24ToSecs(hm), //gives hm time to seconds OR 0 if no time available
@@ -428,9 +585,21 @@ function generateNewsCSV_3(){ //from video.csv
 	var contentType = 'text/csv';
 	var csvFile = new Blob([b], {type: contentType});
 	saveAs(csvFile, allAnnotations.project.replace(/ /g,'_').replace(/---|--/g,'-') + "-" + allAnnotations.Annotator + "-" + timestamp() + "-News.csv"); //v24.8
+	} finally { allAnnotations.images = savedNews3; }
 }
 
 function videoALL(){ //unused
 	downloadAnnotations();
 	generateVideoCSV();
 }
+
+(function () {
+	var box = document.getElementById("mergeOnExport");
+	if (!box) return;
+	var stored = null;
+	try { stored = localStorage.getItem("annotool.mergeOnExport"); } catch (e) {}
+	if (stored === "0") box.checked = false;
+	box.addEventListener("change", function () {
+		try { localStorage.setItem("annotool.mergeOnExport", box.checked ? "1" : "0"); } catch (e) {}
+	});
+})();

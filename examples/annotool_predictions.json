@@ -1,0 +1,48 @@
+{
+  "project": "match-cluster_1",
+  "imageNum": 1,
+  "prefs": {
+    "projectName": "match-cluster_1",
+    "AnnotatorName": "-",
+    "prefsFilename": "",
+    "imgFoldername": "",
+    "userAdds": {},
+    "groups": [],
+    "brands": [],
+    "tpoints": [],
+    "conns": {},
+    "seelater": []
+  },
+  "images": {
+    "00012": {
+      "imageName": "00012",
+      "imageIndex": 1,
+      "width": 960,
+      "height": 540,
+      "annotations": [
+        {
+          "startPoint": [120, 400],
+          "diagPoint": [280, 470],
+          "group": "",
+          "brand": "Adidas",
+          "tpoint": "LED",
+          "hits": 1,
+          "confidence": 0.91
+        },
+        {
+          "startPoint": [300, 400],
+          "diagPoint": [460, 470],
+          "group": "",
+          "brand": "Adidas",
+          "tpoint": "LED",
+          "hits": 1,
+          "confidence": 0.74
+        }
+      ],
+      "exifdata": {}
+    }
+  },
+  "currentImage": "00012",
+  "presets": {},
+  "Annotator": "-"
+}

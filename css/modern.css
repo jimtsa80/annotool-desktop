@@ -324,10 +324,12 @@ html.theme-dark .toolbar .btn.disabled {
 	color: #fff;
 	background-color: #1f7eb0;
 }
-html.theme-dark #comboGlanceOpen {
+html.theme-dark #comboGlanceOpen,
+html.theme-dark #mapGlanceOpen {
 	background: #0f7a68;
 	color: #fff;
 }
+html.theme-dark #mapGlanceOpen.on { background: #1f6f4a; }
 html.theme-dark #imagestools #btn_foldcols.on {
 	background-color: #1f7eb0;
 	color: #fff;
@@ -500,6 +502,296 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 	appearance: auto;
 	-webkit-appearance: checkbox;
 	background: #fff;
+}
+#liveSync {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: 12px;
+	vertical-align: middle;
+	color: #fefefe;
+	font-size: 12px;
+	font-weight: 700;
+}
+#liveSyncBtn {
+	height: 22px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 4px;
+	background: #1f7eb0;
+	color: #fff;
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 22px;
+}
+#liveSync.on #liveSyncBtn { background: #0c6b5c; }
+#liveSyncDot {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	background: #d23b2e;
+	display: inline-block;
+}
+#liveSync.on #liveSyncDot {
+	background: #3dce7a;
+	box-shadow: 0 0 0 2px rgba(61, 206, 122, 0.35);
+}
+#liveSyncState {
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+#liveSync.unsupported #liveSyncState { max-width: 280px; }
+#liveTrainer {
+	display: inline-flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	max-width: 720px;
+	margin-left: 2px;
+	padding-left: 8px;
+	border-left: 1px solid rgba(255, 255, 255, 0.22);
+	color: #d5e4ee;
+	font-size: 11px;
+	font-weight: 650;
+	line-height: 16px;
+	white-space: nowrap;
+	vertical-align: middle;
+}
+#liveTrainer[hidden] { display: none !important; }
+#liveTrainerMain { color: #fefefe; }
+#liveTrainerErr {
+	flex: 1 0 100%;
+	color: #ff8d86;
+	max-width: none;
+	white-space: normal;
+	line-height: 1.35;
+}
+#liveTrainerModel { color: #fefefe; }
+#liveModelChoiceLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0;
+	color: inherit;
+	font-weight: 700;
+}
+#liveModelChoice,
+#liveModelFromText {
+	height: 18px;
+	max-width: 150px;
+	padding: 0 2px;
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	border-radius: 3px;
+	background: #243842;
+	color: #fefefe;
+	font-size: 11px;
+	font-weight: 700;
+}
+#liveModelFromText { width: 96px; }
+#liveModelChoice[hidden],
+#liveModelFromText[hidden] { display: none !important; }
+#liveTrainerPerClass { display: none !important; }
+#framePredict {
+	position: absolute;
+	z-index: 8;
+	top: 8px;
+	right: 8px;
+	pointer-events: none;
+	padding: 2px 8px;
+	border-radius: 8px;
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 18px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+#framePredict.has { background: #1f6b45; color: #e9fff3; }
+#framePredict.miss { background: #3d4a52; color: #d5e4ee; }
+#framePredict.ahead { background: #8a4b12; color: #fff4e5; }
+#framePredict[hidden] { display: none !important; }
+#liveWait {
+	position: absolute;
+	z-index: 24;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	background: rgba(12, 18, 22, 0.78);
+	pointer-events: auto;
+}
+#liveWait[hidden] { display: none !important; }
+.liveWaitCard {
+	max-width: 92%;
+	padding: 18px 22px;
+	border-radius: 12px;
+	background: #1c2830;
+	color: #fff;
+	font-family: "Didact Gothic", sans-serif;
+	font-size: 22px;
+	font-weight: 700;
+	line-height: 1.35;
+	text-align: center;
+	overflow-wrap: anywhere;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+	pointer-events: none;
+}
+.liveWaitTrack {
+	height: 10px;
+	margin-top: 14px;
+	border-radius: 99px;
+	background: rgba(255, 255, 255, 0.16);
+	overflow: hidden;
+}
+.liveWaitTrack[hidden] { display: none !important; }
+.liveWaitTrack i {
+	display: block;
+	height: 100%;
+	width: 0;
+	background: #f0b429;
+}
+.liveWaitTrack.is-busy i {
+	width: 38%;
+	animation: liveWaitSlide 1.15s ease-in-out infinite;
+}
+.noty_theme__mint .noty_buttons .liveBareClear {
+	background: #1c2830;
+	color: #fff;
+	border: 0;
+	border-radius: 4px;
+	font-weight: 700;
+	padding: 4px 10px;
+	cursor: pointer;
+}
+@keyframes liveWaitSlide {
+	0% { transform: translateX(-120%); }
+	100% { transform: translateX(280%); }
+}
+#mergeOnExportLabel,
+#autoAcceptLabel {
+	display: inline-block;
+	margin: 0 8px 0 0;
+	color: #fefefe;
+	font-size: 12px;
+	font-weight: 700;
+	vertical-align: middle;
+}
+#mergeOnExportLabel input,
+#autoAcceptLabel input {
+	position: static;
+	opacity: 1;
+	width: 14px;
+	height: 14px;
+	margin: 0 4px 0 0;
+	vertical-align: middle;
+}
+#livePredictBar {
+	position: absolute;
+	z-index: 8;
+	left: 8px;
+	top: 8px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 6px;
+	background: #1c2830;
+	color: #fff;
+	font-size: 13px;
+	font-weight: 700;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+#livePredictBar button,
+.liveChip button {
+	border: 0;
+	border-radius: 4px;
+	background: #f0b429;
+	color: #1a1408;
+	font-weight: 700;
+	line-height: 18px;
+	padding: 1px 8px;
+}
+#livePredictBar .liveHint {
+	font-weight: 500;
+	color: #f0b429;
+	font-size: 12px;
+}
+#livePredictChips {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 7;
+	pointer-events: none;
+}
+.liveChip {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	max-width: calc(100% - 8px);
+	box-sizing: border-box;
+	padding: 2px 4px 2px 8px;
+	border-radius: 6px;
+	background: #f0b429;
+	color: #1a1408;
+	font-size: 12px;
+	font-weight: 700;
+	white-space: nowrap;
+	pointer-events: auto;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.liveChipText {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+.liveChip button { flex: 0 0 auto; }
+#resizefname {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	float: right;
+	margin-left: 12px;
+	vertical-align: middle;
+}
+#resizefname #firstButton,
+#resizefname #prevButton,
+#resizefname #nextButton,
+#resizefname #lastButton {
+	float: none;
+	width: auto;
+	min-width: 52px;
+	height: 26px;
+	margin: 0;
+	padding: 0 8px;
+	line-height: 24px;
+	vertical-align: middle;
+}
+#resizefname #imageName {
+	float: none;
+	display: inline-block;
+	width: 7.6em;
+	min-width: 84px;
+	max-width: 11em;
+	height: 26px;
+	margin: 0;
+	padding: 0 8px;
+	border: 1px solid #c5d0d6;
+	border-radius: 4px;
+	background: #f4f7f8;
+	color: #1a242b;
+	font-size: 15px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	line-height: 24px;
+	text-align: center;
+	box-shadow: none;
 }
 #clusterPick {
 	display: none;

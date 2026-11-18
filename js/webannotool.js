@@ -14,6 +14,7 @@ brd,
 imList = [],
 imAll = {},
 imIndices = [],
+pendingFolderName = "",
 clusterGroups = null,
 clusterOrder = [],
 clustersOpened = {},
@@ -287,6 +288,7 @@ function applyClusterFileName(name) {
 	if (prefs && prefs.projectRoot === undefined) prefs.projectRoot = prefs.projectName || "";
 	prefs.projectName = name;
 	allAnnotations.project = name;
+	if (window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(name);
 	var el = document.getElementById("projectName");
 	if (!el) return;
 	if (el.tagName === "INPUT") el.value = name;
@@ -309,15 +311,18 @@ document.addEventListener("change", function (e) {
 
 function checkLoadLocalStorage() {
     "undefined" === typeof localStorage && alert("CAUTION: Local storage is not supported by your browser. For this reason autosave will not work. You have to manually save your annotations.");
-    if ("undefined" !== typeof localStorage.allAnnotations && "" !== localStorage.allAnnotations) {
-        allAnnotations = JSON.parse(localStorage.allAnnotations);
-        prefs = allAnnotations.prefs;
-        presets = allAnnotations.presets;
-        $("#brands").html("");
-        resetGUIAnnoInfo();
-        document.getElementById("projectName").innerHTML = prefs.projectName
-		document.getElementById("AnnotatorName").innerHTML = prefs.AnnotatorName
-    }
+    try {
+        if ("undefined" !== typeof localStorage.allAnnotations && "" !== localStorage.allAnnotations) {
+            allAnnotations = JSON.parse(localStorage.allAnnotations);
+            prefs = allAnnotations.prefs;
+            presets = allAnnotations.presets;
+            if (prefs && prefs.projectName) document.getElementById("projectName").innerHTML = prefs.projectName;
+            if (prefs && prefs.AnnotatorName) document.getElementById("AnnotatorName").innerHTML = prefs.AnnotatorName;
+            if (typeof paintSavedBrands === "function") paintSavedBrands();
+            resetGUIAnnoInfo();
+        }
+    } catch (e) {}
+    if (window.AnnoSync && AnnoSync.noteHydrated) AnnoSync.noteHydrated();
 }
 
 function uniqueArr(list) {
@@ -576,7 +581,7 @@ function imageHasBoxes() {
 	if (!brd || !brd.objectsList) return false;
 	for (i = 0; i < brd.objectsList.length; i++) {
 		poly = brd.objectsList[i];
-		if (!poly || !poly.getType || poly.getType() !== "polygon") continue;
+		if (!poly || !poly.getType || poly.getType() !== "polygon" || poly._liveSuggest) continue;
 		if (poly.getAttribute && poly.getAttribute("visible") === false) continue;
 		return true;
 	}
@@ -659,7 +664,9 @@ function fillTouchpoints(conn) {
 
 
 function initJSXBoard() {
+    resetClusters();
     if ( 0 === $("#brands ul li").length || "" === prefs.prefsFilename){
+		pendingFolderName = "";
 		return prefs = {
 			projectName: "",
 			brands: [],
@@ -738,6 +745,9 @@ activeCluster = "",
         }
         allAnnotations.imageNum = imList.length ? countGrouped(grouped) : imIndices.length;
         imIndices.sort(alphanumCase);
+        var nextProject = (clusterGroups && activeCluster) ? activeCluster : pendingFolderName;
+        pendingFolderName = "";
+        if (nextProject && window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(nextProject);
         imName = imIndices[0];
         prev_imName = imIndices[0];
         prev_imIndex = imIndex = 0;
@@ -808,6 +818,7 @@ activeCluster = "",
                 for (var n = 0, r = highlighted.length; n < r; n++) {
                     var q = highlighted[n],
                         l;
+                    if (boxIsLocked(q)) continue;
                     for (l in q.ancestors) q.ancestors.hasOwnProperty(l) && p.push(q.ancestors[l])
                 } else
                     for (l in c.ancestors) c.ancestors.hasOwnProperty(l) &&
@@ -817,6 +828,7 @@ activeCluster = "",
             c.getParents();
             var A = 0;
             brd.on("move", function(a) {
+                if (boxIsLocked(c)) return;
                 z = !0;
                 a = brd.getUsrCoordsOfMouse(a);
                 e.addPoints(p);
@@ -863,9 +875,11 @@ activeCluster = "",
                 p = [],
                 y = !1;
             if (-1 != highlighted.indexOf(c))
-                for (y = !0, n = 0, r = highlighted.length; n < r; n++)
-                    for (l in q =
-                        highlighted[n], q.ancestors) q.ancestors.hasOwnProperty(l) && p.push(q.ancestors[l]);
+                for (y = !0, n = 0, r = highlighted.length; n < r; n++) {
+                    q = highlighted[n];
+                    if (boxIsLocked(q)) continue;
+                    for (l in q.ancestors) q.ancestors.hasOwnProperty(l) && p.push(q.ancestors[l]);
+                }
             else
                 for (l in c.ancestors) c.ancestors.hasOwnProperty(l) && p.push(c.ancestors[l]);
             brd.renderer.highlight(c);
@@ -876,6 +890,7 @@ activeCluster = "",
             });
             A = 0;
             brd.on("move", function(a) {
+                if (boxIsLocked(c)) return;
                 A++;
                 z = !0;
                 a = brd.getUsrCoordsOfMouse(a);
@@ -1037,7 +1052,8 @@ activeCluster = "",
     autosaveTimer = setInterval(function() {
         storeAnnotationImg();
         localStorage.allAnnotations = JSON.stringify(allAnnotations)
-		// alert("saved")
+        if (window.AnnoSync && AnnoSync.rememberProject) AnnoSync.rememberProject();
+        if (window.AnnoSync && AnnoSync.onAutosave) AnnoSync.onAutosave();
     }, autosaveInterval)
 }
 
@@ -1090,6 +1106,7 @@ function refitLoadedBoard() {
     placeBoardImage(url, size.w, size.h);
     loadAnnotationImg();
     if (window.AnnoLive && AnnoLive.refresh) AnnoLive.refresh();
+    if (window.AnnoSync && AnnoSync.resurface) AnnoSync.resurface();
 }
 
 function fitBoard(naturalW, naturalH) {
@@ -1410,7 +1427,7 @@ function storeAnnotationImg() {
 	
 	for (var b = 0; b < brd.objectsList.length; b++){
 		var obj = brd.objectsList[b];
-		if ( obj.getType() == "polygon" && obj.getAttribute("visible") == !0) {
+		if ( obj.getType() == "polygon" && obj.getAttribute("visible") == !0 && !obj._liveSuggest) {
 			var d = {};
 			d.startPoint = getPolyStartDiag(obj).start;
 			d.diagPoint = getPolyStartDiag(obj).diag;
@@ -1419,6 +1436,7 @@ function storeAnnotationImg() {
 			d.tpoint = tpointText(obj.annotation.tpoint);
 			d.hits = obj.annotation.hits;
 			if (obj.annotation.timestamp) d.timestamp = obj.annotation.timestamp;
+			if (obj.annotation.locked) d.locked = true;
 			a.annotations.push(d);
 		}
 	}
@@ -1452,16 +1470,21 @@ function loadAnnotationImg() {
             sy = imHeight / stored.height;
         }
         brd.suspendUpdate();
-        for (var b = 0, c = a.length; b < c; b++) createPolygon(
-            [a[b].startPoint[0] * sx, a[b].startPoint[1] * sy],
-            [a[b].diagPoint[0] * sx, a[b].diagPoint[1] * sy]
-        ).annotation = {
-            group: a[b].group,
-            brand: a[b].brand,
-            tpoint: tpointText(a[b].tpoint),
-            hits: a[b].hits,
-            timestamp: a[b].timestamp || ""
-        };
+        for (var b = 0, c = a.length; b < c; b++) {
+            var poly = createPolygon(
+                [a[b].startPoint[0] * sx, a[b].startPoint[1] * sy],
+                [a[b].diagPoint[0] * sx, a[b].diagPoint[1] * sy]
+            );
+            poly.annotation = {
+                group: a[b].group,
+                brand: a[b].brand,
+                tpoint: tpointText(a[b].tpoint),
+                hits: a[b].hits,
+                timestamp: a[b].timestamp || "",
+                locked: !!a[b].locked
+            };
+            if (poly.annotation.locked) applyBoxLock(poly);
+        }
         brd.unsuspendUpdate()
     }
 }
@@ -1477,7 +1500,7 @@ function imageHasCombo(name, combo) {
     if (name === imName && brd && brd.objectsList && !imReadFlag) {
         for (i = 0; i < brd.objectsList.length; i++) {
             a = brd.objectsList[i];
-            if (!a || a.elType !== "polygon" || (a.visProp && a.visProp.visible === !1) || !a.annotation) continue;
+            if (!a || a.elType !== "polygon" || a._liveSuggest || (a.visProp && a.visProp.visible === !1) || !a.annotation) continue;
             if ((a.annotation.brand || "").trim() === brand && (a.annotation.tpoint || "").trim() === location) return !0
         }
         return !1
@@ -1606,15 +1629,23 @@ function checkDoubleByPos(){
 }
 
 function checkDoubleByAnno(){
-	var a = brd.objects, b, pos=[];
+	var a = brd.objects, b, list = [], i, j, pi, pj, left, right;
 	for ( b in a ){
-		if ( a[b].getType()=="polygon" ){
-			if ( $.inArray( a[b].annotation.brand+"__"+a[b].annotation.tpoint, pos ) >-1 ){
-				new Noty({ type: 'error', theme: 'mint', layout: 'top',  
-					text: 'διπλότυπο στην προηγούμενη εικόνα : '+a[b].annotation.brand+" - "+a[b].annotation.tpoint,  timeout: 3000,  closeWith: ['click', 'button'],}).show();
-					break
-			}else{
-				pos.push( a[b].annotation.brand+"__"+a[b].annotation.tpoint )
+		if ( !a[b] || a[b].getType() != "polygon" || a[b]._liveSuggest || !a[b].annotation ) continue;
+		if ( a[b].getAttribute && a[b].getAttribute("visible") == false ) continue;
+		list.push(a[b]);
+	}
+	for ( i = 0; i < list.length; i++ ){
+		for ( j = i + 1; j < list.length; j++ ){
+			left = list[i].annotation;
+			right = list[j].annotation;
+			if ( (left.brand || "") + "__" + (left.tpoint || "") !== (right.brand || "") + "__" + (right.tpoint || "") ) continue;
+			pi = getPolyStartDiag(list[i]);
+			pj = getPolyStartDiag(list[j]);
+			if ( Math.abs(pi.start[0] - pj.start[0]) < 2 && Math.abs(pi.start[1] - pj.start[1]) < 2 && Math.abs(pi.diag[0] - pj.diag[0]) < 2 && Math.abs(pi.diag[1] - pj.diag[1]) < 2 ){
+				new Noty({ type: 'error', theme: 'mint', layout: 'top',
+					text: 'διπλότυπο στην προηγούμενη εικόνα : '+left.brand+" - "+left.tpoint,  timeout: 3000,  closeWith: ['click', 'button'],}).show();
+				return;
 			}
 		}
 	}
@@ -1985,12 +2016,45 @@ function storePreset(a) {
 	}
 }
 
+function boxIsLocked(poly) {
+	return !!(poly && poly.annotation && poly.annotation.locked);
+}
+
+function applyBoxLock(poly) {
+	var on = boxIsLocked(poly), i, k, pt;
+	if (!poly) return;
+	if (poly.borders) {
+		for (i = 0; i < poly.borders.length; i++) {
+			if (poly.borders[i] && poly.borders[i].setAttribute) poly.borders[i].setAttribute({ dash: on ? 2 : 0 });
+		}
+	}
+	if (poly.ancestors) {
+		for (k in poly.ancestors) {
+			pt = poly.ancestors[k];
+			if (pt && pt.setAttribute) pt.setAttribute({ fixed: !!on });
+		}
+	}
+}
+
+function toggleBoxLock() {
+	var list = highlighted, i, lock = false;
+	if (!list || !list.length) return;
+	for (i = 0; i < list.length; i++) if (!boxIsLocked(list[i])) lock = true;
+	for (i = 0; i < list.length; i++) {
+		if (!list[i] || !list[i].annotation) continue;
+		list[i].annotation.locked = lock;
+		applyBoxLock(list[i]);
+	}
+	storeAnnotationImg();
+}
+
 function storeD(a) {
     removePresetObj(a);
 	
 	for (var x = [], b = 0, c = highlighted.length; b < c; b++) {
 		var d = getPolyStartDiag(highlighted[b]),
 		e = highlighted[b].annotation;
+        if (e && e.locked) continue;
         d.annotation = {};
 			d.annotation.group = e.group;
 			d.annotation.brand = e.brand;
@@ -2325,7 +2389,7 @@ var switchToSpan = function () {
 	if ( thisId == "projectName" ){ 
 		prefs.projectName = $('span#projectName').text()
 		allAnnotations.project = prefs.projectName;
-		
+		if (window.AnnoSync && AnnoSync.noteProject) AnnoSync.noteProject(prefs.projectName);
 	}
 	if ( thisId == "AnnotatorName" ){ 
 		prefs.AnnotatorName = $('span#AnnotatorName').text()
